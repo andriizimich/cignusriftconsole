@@ -1,0 +1,137 @@
+{
+  "theme": "dark",
+  "archetype": "Electric & Neon (Future, Speed, VR, Disruption) customized for Enterprise",
+  "typography": {
+    "headings": {
+      "family": "Unbounded",
+      "weights": ["300", "500", "700"],
+      "usage": "Use tight letter spacing (tracking-tight). Do not use Inter or generic sans. Use for Widget Titles, Page Headers, and high-impact metrics."
+    },
+    "body": {
+      "family": "IBM Plex Sans",
+      "weights": ["300", "400", "500"],
+      "usage": "Mainly for tabular data, descriptions, and standard text. Use tracking-wide for overlines/labels."
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl font-light tracking-tighter",
+      "h2": "text-2xl sm:text-3xl font-medium tracking-tight",
+      "h3": "text-xl sm:text-2xl font-medium tracking-tight",
+      "widget_title": "text-lg sm:text-xl font-medium tracking-tight",
+      "body": "text-sm sm:text-base text-zinc-400",
+      "label": "text-xs uppercase tracking-[0.2em] text-zinc-500"
+    }
+  },
+  "colors": {
+    "background": {
+      "base": "#050505",
+      "surface": "#0A0A0B",
+      "glass": "rgba(10, 10, 11, 0.6)"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "tertiary": "#71717A",
+      "disabled": "#52525B"
+    },
+    "accent": {
+      "primary": "#0066FF",
+      "secondary": "#B800FF",
+      "success": "#00FF66",
+      "warning": "#FFB800",
+      "danger": "#FF3366"
+    },
+    "border": {
+      "subtle": "rgba(255, 255, 255, 0.08)",
+      "focus": "rgba(0, 102, 255, 0.5)"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "glow_primary": "0 0 20px rgba(0, 102, 255, 0.15)",
+      "glow_success": "0 0 20px rgba(0, 255, 102, 0.15)"
+    },
+    "surfaces": {
+      "glassmorphism": "bg-black/60 backdrop-blur-2xl border border-white/10",
+      "retro_futurism": "Subtle repeating-linear-gradient scanlines for terminal/log moments if any",
+      "grid_borders": "Use border-collapse layout for data tables to expose the skeleton, mimicking UE5 wireframes."
+    }
+  },
+  "grids_and_layouts": {
+    "dashboard_grid": "Grid cols-1 md:grid-cols-3 lg:grid-cols-4. Gap-4 or gap-6. Every pixel utilized. Dense, data-heavy layout.",
+    "spacing": "Generous spacing. p-6 or p-8 inside cards. Wide gaps between structural sections to avoid clutter.",
+    "navigation": "Left sidebar (w-64) or Top nav. Use Glassmorphism (bg-black/60, blur-2xl) if floating, or Solid Background with hard 1px border if fixed.",
+    "alignment": "Left-align forms, lists, tabular data. Optical alignment for icons inside buttons."
+  },
+  "component_guidelines": {
+    "cards": "Go flat, rectangular, sharp edges or max rounded-md (8px). 1px subtle border. Hover: slight lift (-translate-y-1), border color darkens or glows with primary accent.",
+    "buttons": "Sharp edges or slightly rounded. Primary button: bg-[#0066FF] text-white hover:bg-[#0066FF]/80. Include micro-interactions (scale down on click).",
+    "tables": "Shadcn table. Remove generic card wrapper, use grid borders. Rows should have hover:bg-white/5.",
+    "status_badges": "Orders Payment Status: Neon Green text + bg-green-500/10 for Paid. Neon Yellow + bg-yellow-500/10 for Pending. Uppercase, tracking-widest, text-[10px] font-bold."
+  },
+  "motion": {
+    "transitions": "Use specific properties (transition-colors, transition-transform) with 0.2s ease. NO universal 'all' transition.",
+    "hover": "Explicitly set text color on hover. Lift cards on hover.",
+    "entrance": "Staggered fade-up for dashboard widgets and table rows."
+  },
+  "accessibility": {
+    "contrast": "Ensure APCA/WCAG AA contrast. Use text-shadow over images. Focus rings must be high contrast (ring-2 ring-[#0066FF]).",
+    "testing": "All interactive/key elements MUST have data-testid attributes (e.g., data-testid='nav-summary-link').",
+    "reduced_motion": "Respect prefers-reduced-motion."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1775887065658-988ef1c262c6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwzfHx1bnJlYWwlMjBlbmdpbmUlMjBsYW5kc2NhcGUlMjBkYXJrfGVufDB8fHx8MTc4NDc2Mzg2NXww&ixlib=rb-4.1.0&q=85",
+        "category": "background",
+        "description": "Abstract iridescent curves. Use as atmospheric background for the Login Screen or behind the Header."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1588336443962-49d88df004a1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwzfHx2ciUyMGhlYWRzZXQlMjBuZW9ufGVufDB8fHx8MTc4NDc2Mzg2NXww&ixlib=rb-4.1.0&q=85",
+        "category": "avatar/profile",
+        "description": "Man in VR headset. Can be used for trainee profiles or group thumbnails."
+      },
+      {
+        "url": "https://images.pexels.com/photos/7773729/pexels-photo-7773729.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "hero/promo",
+        "description": "Immersive VR gaming. Use as hero image on Login Screen or News Announcement card."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1710438399422-2fca27686bcd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjB0ZXh0dXJlfGVufDB8fHx8MTc4NDc2Mzg2NXww&ixlib=rb-4.1.0&q=85",
+        "category": "texture",
+        "description": "Abstract black/green texture. Use as overlay for metric cards or announcement background."
+      }
+    ],
+    "icons": "Use @phosphor-icons/react for dense dashboard needs. Sharp, technical."
+  },
+  "libraries": {
+    "3d": "Optional: Framer Motion 3D for simple card tilts. TSParticles for background dust/mesh on the login page to emphasize 'Cygnus Rift' spatial tech.",
+    "charts": "Shadcn charts (Recharts) with neon green/blue lines against void black backgrounds, with glow filters.",
+    "ui": "Shadcn UI (Tables, Tabs, Cards, Dialogs). Custom styling to strip 'Vercel look' and add high-end VR engine look."
+  },
+  "instructions_to_main_agent": [
+    "DO NOT use generic centered layouts or simplistic gradients.",
+    "USE pure black backgrounds (#050505) with 1px border-white/10 to create technical grid structures.",
+    "NEVER use generic 'Inter' for headings. Install and use 'Unbounded' for headings, 'IBM Plex Sans' for body.",
+    "EVERY button, link, and interactive widget MUST have a data-testid attribute.",
+    "DO NOT use transparent backgrounds for dropdowns, navs, or modals. Always use solid dark or bg-black/60 with backdrop-blur-xl.",
+    "IMPLEMENT a 'Tracing Beam' or subtle neon border effect on active nav items or top metric cards.",
+    "Login Screen: Split screen. Left: Abstract UE5/VR image with overlay. Right: Login form with Google / Guest access. Very minimal, pure cinematic vibe.",
+    "Dashboard layout: Left sidebar (Summary, Sessions, Groups, Orders, Profile). Main area: Grid layout. Top row: Quick Analytics. Next rows: My Schedule, Orders, Groups, News.",
+    "Orders table needs vibrant status dots (Neon Green for paid, Neon Orange for pending) and a download icon for actions."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: transition: all. Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use 'sonner' for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
