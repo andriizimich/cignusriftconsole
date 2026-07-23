@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 2 full backend + frontend testing of Sessions/Groups/Orders modules. 25/25 pytest backend tests pass (public data endpoints, meta, sessions with all filters + delete, groups full CRUD with student_list/sessions expansion, orders list/detail/checkout stub, auth). Frontend flows all pass: guest login, sessions search/status/teacher/group/date filters, grid<->table toggle, edit locked (disabled), delete, session detail with Launch VR toast + materials + homework + graded submissions, groups list, New Group form with course/teacher selects + student search multiselect, group detail tabs (Students/Schedule/Materials), group edit + delete, orders list + row click -> receipt, checkout with COHORT12 promo applying $1200 discount, Pay creates real order and navigates to receipt.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "GroupDetail", "issue": "After edit submit navigates to /dashboard/groups/:id (same URL), component does not refetch group data — displayed name/fields remain stale until a hard reload. PUT to backend succeeds (verified via API test) but UI shows previous values.", "selector": "[data-testid=\"group-edit-btn\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Summary chart", "issues": ["Recharts width(-1)/height(-1) warning on initial render (cosmetic, from iteration 1, still present)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix GroupDetail stale state after edit: either refetch on mount using a location.key dependency, or force a full refetch after PUT (e.g., navigate to /dashboard/groups then back, or add a state-refresh in useEffect keyed on location.pathname/search)."
+  ],
+  "critical_code_review_comments": [
+    "server.py DELETE /api/sessions/{sid} and DELETE /api/groups/{gid} always return {success:true} even when the id does not exist — consider returning 404 when delete_one matched_count == 0 for correctness (currently only affects observability, not functionality).",
+    "GroupDetail.jsx useEffect deps are [id, navigate] — after PUT which redirects to the same :id URL, no refetch happens. Root cause of the stale-name bug above.",
+    "Sessions delete mutates seeded DB (documented as acceptable). Reseeding requires manually dropping db.sessions collection since seed() guards on count_documents == 0.",
+    "Checkout PROMOS map is hardcoded in the frontend (COHORT12/EDU5/VR10). Discount value passed from client to backend is trusted as-is (backend accepts discount arg and subtracts). For a stub this is fine; for production, validate/lookup promo server-side."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "~95% (all flows work; 1 stale-state UI bug on group edit)"},
+  "test_credentials": "Guest flow via [data-testid=guest-login-button]. Backend Bearer token created dynamically via mongosh insert. No OAuth needed for these tests.",
+  "seed_data_creation": "TestSessions inserts a temp session S-TEST-DEL via mongosh for the delete test (not present in seed). TestGroups creates then deletes TEST_QA_Group. TestOrders creates a TEST_ClientCo order. Manual UI test created and deleted one group (G-33630c) and one order (ORD-86D875) and deleted seeded session S-4826.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/backend_test.py; run: pytest /app/backend/tests -v. All endpoints under /api. Seeded sessions/groups/orders in db.sessions/groups/orders. IMPORTANT: UI delete of seeded session S-4826 in this iteration reduced sessions from 6 to 5. To reseed, drop the collections and restart backend. Group edit UI has stale-state bug — backend PUT works.",
+  "rca of the issue": "GroupDetail stale-state after edit: navigate(`/dashboard/groups/${id}`) after PUT re-mounts route but id param is unchanged, useEffect deps [id, navigate] don't retrigger fetch. Fix: (a) add a state key / location.key to deps, (b) refetch inside submit() before navigate, or (c) navigate to /dashboard/groups first then back. Reproduction: create group -> open detail -> Edit -> change name -> Save -> observe name unchanged until hard refresh."
+}

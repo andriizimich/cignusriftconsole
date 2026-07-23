@@ -1,5 +1,6 @@
 import { Download } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export const fmtMoney = (amount, currency = "USD") =>
@@ -9,6 +10,7 @@ export const fmtDate = (iso) =>
   new Date(iso).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 
 export const OrdersTable = ({ orders }) => {
+  const navigate = useNavigate();
   const downloadReceipt = (id) => {
     toast.info("Receipt generation coming soon", { description: `Order ${id} receipt is queued.` });
   };
@@ -29,14 +31,14 @@ export const OrdersTable = ({ orders }) => {
         </thead>
         <tbody>
           {orders.map((o) => (
-            <tr key={o.id} data-testid={`order-row-${o.id}`} className="transition-colors hover:bg-white/[0.03]">
+            <tr key={o.id} data-testid={`order-row-${o.id}`} onClick={() => navigate(`/dashboard/orders/${o.id}`)} className="cursor-pointer transition-colors hover:bg-white/[0.03]">
               <td className="border-b border-white/[0.05] px-6 py-4 font-mono-plex text-[#0066FF]">{o.id}</td>
               <td className="border-b border-white/[0.05] px-6 py-4 text-zinc-400">{fmtDate(o.date)}</td>
               <td className="border-b border-white/[0.05] px-6 py-4 text-white">{o.client}</td>
               <td className="border-b border-white/[0.05] px-6 py-4 text-zinc-400">{o.product}</td>
               <td className="border-b border-white/[0.05] px-6 py-4 font-mono-plex text-white">{fmtMoney(o.amount, o.currency)}</td>
               <td className="border-b border-white/[0.05] px-6 py-4"><StatusBadge status={o.status} /></td>
-              <td className="border-b border-white/[0.05] px-6 py-4 text-right">
+              <td className="border-b border-white/[0.05] px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                 <button
                   data-testid={`download-receipt-${o.id}`}
                   onClick={() => downloadReceipt(o.id)}
