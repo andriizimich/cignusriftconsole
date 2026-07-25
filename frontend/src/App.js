@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
 import AuthCallback from "@/pages/AuthCallback";
 import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import ForgotPassword from "@/pages/ForgotPassword";
 import Summary from "@/pages/Summary";
 import Sessions from "@/pages/Sessions";
 import SessionDetail from "@/pages/SessionDetail";
@@ -36,6 +38,8 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/dashboard" element={<Protected><Summary /></Protected>} />
       <Route path="/dashboard/sessions" element={<Protected><Sessions /></Protected>} />
       <Route path="/dashboard/sessions/:id" element={<Protected><SessionDetail /></Protected>} />

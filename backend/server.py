@@ -6,8 +6,11 @@ import os
 import logging
 import uuid
 import httpx
+import bcrypt
+import jwt
+import random
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 
@@ -22,17 +25,68 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 EMERGENT_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+JWT_SECRET = os.environ["JWT_SECRET"]
+JWT_ALG = "HS256"
+
+SPECIALIZATIONS = {
+    "Corporate": [
+        "Leadership & Management", "Sales Enablement", "Customer Success",
+        "Operations & Logistics", "Cybersecurity", "Software Engineering",
+        "Product Management", "HR & People Ops", "Finance & Compliance",
+        "Healthcare & Safety Training",
+    ],
+    "Academic": [
+        "Computer Science", "Mechanical Engineering", "Medicine & Nursing",
+        "Architecture", "Physics", "Mathematics", "Psychology",
+        "Business Administration", "Aviation", "Chemistry",
+    ],
+}
 
 
-# ---------------- Auth ----------------
+# ---------------- Auth helpers ----------------
+def hash_password(pw: str) -> str:
+    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(pw: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(pw.encode(), hashed.encode())
+    except Exception:
+        return False
+
+
+def create_access_token(user_id: str, email: str) -> str:
+    payload = {"sub": user_id, "email": email, "type": "access", "exp": datetime.now(timezone.utc) + timedelta(days=7)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+
+
+def clean_user(u: Optional[dict]) -> Optional[dict]:
+    if not u:
+        return None
+    u.pop("password_hash", None)
+    u.pop("_id", None)
+    return u
+
+
 async def get_current_user(request: Request) -> Optional[dict]:
-    token = request.cookies.get("session_token")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
+    token = None
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+    token = token or request.cookies.get("access_token") or request.cookies.get("session_token")
     if not token:
         return None
+
+    # 1) JWT (email/password + refresh)
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+        if payload.get("type") == "access":
+            u = await db.users.find_one({"user_id": payload["sub"]})
+            return clean_user(u)
+    except jwt.PyJWTError:
+        pass
+
+    # 2) Emergent Google session token
     session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
     if not session:
         return None
@@ -43,7 +97,129 @@ async def get_current_user(request: Request) -> Optional[dict]:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
         return None
-    return await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+    u = await db.users.find_one({"user_id": session["user_id"]})
+    return clean_user(u)
+
+
+# ---------------- Email/Password auth ----------------
+class RegisterIn(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: str = "student"
+    phone: Optional[str] = None
+    specialization: Optional[str] = None
+    accept_terms: bool = False
+
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class ForgotIn(BaseModel):
+    email: EmailStr
+
+
+class VerifyCodeIn(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class ResetIn(BaseModel):
+    email: EmailStr
+    code: str
+    password: str
+
+
+def _set_token_cookie(response: Response, token: str):
+    response.set_cookie(key="access_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 60 * 60)
+
+
+@api_router.get("/auth/specializations")
+async def specializations():
+    return SPECIALIZATIONS
+
+
+@api_router.post("/auth/register")
+async def register(body: RegisterIn, response: Response):
+    if not body.accept_terms:
+        raise HTTPException(status_code=400, detail="You must accept the terms to continue")
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if body.role not in ("student", "teacher"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    email = body.email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="An account with this email already exists")
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "user_id": user_id, "name": body.name, "email": email,
+        "password_hash": hash_password(body.password), "role": body.role,
+        "phone": body.phone, "specialization": body.specialization if body.role == "teacher" else None,
+        "picture": None, "auth_provider": "password",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(dict(doc))
+    token = create_access_token(user_id, email)
+    _set_token_cookie(response, token)
+    return {**clean_user(dict(doc)), "token": token}
+
+
+@api_router.post("/auth/login")
+async def login(body: LoginIn, response: Response):
+    email = body.email.lower()
+    user = await db.users.find_one({"email": email})
+    if not user or not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = create_access_token(user["user_id"], email)
+    _set_token_cookie(response, token)
+    return {**clean_user(user), "token": token}
+
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(body: ForgotIn):
+    email = body.email.lower()
+    user = await db.users.find_one({"email": email})
+    code = f"{random.randint(0, 999999):06d}"
+    if user:
+        await db.password_resets.update_one(
+            {"email": email},
+            {"$set": {"email": email, "code": code, "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat(), "used": False}},
+            upsert=True,
+        )
+        logger.info(f"[password-reset] code for {email}: {code}")
+    # Demo: no email provider configured, so return the code so the user can proceed.
+    return {"message": "If the email exists, a code has been sent.", "demo_code": code if user else None}
+
+
+async def _check_code(email: str, code: str) -> dict:
+    rec = await db.password_resets.find_one({"email": email})
+    if not rec or rec.get("used") or rec.get("code") != code:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    exp = datetime.fromisoformat(rec["expires_at"])
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if exp < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Code has expired")
+    return rec
+
+
+@api_router.post("/auth/verify-code")
+async def verify_code(body: VerifyCodeIn):
+    await _check_code(body.email.lower(), body.code)
+    return {"valid": True}
+
+
+@api_router.post("/auth/reset-password")
+async def reset_password(body: ResetIn):
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    email = body.email.lower()
+    await _check_code(email, body.code)
+    await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(body.password)}})
+    await db.password_resets.update_one({"email": email}, {"$set": {"used": True}})
+    return {"success": True}
 
 
 @api_router.post("/auth/session")
@@ -62,12 +238,12 @@ async def create_session(request: Request, response: Response):
         await db.users.update_one({"user_id": user_id}, {"$set": {"name": data["name"], "picture": data.get("picture")}})
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
-        await db.users.insert_one({"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "created_at": datetime.now(timezone.utc).isoformat()})
+        await db.users.insert_one({"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "role": "teacher", "auth_provider": "google", "created_at": datetime.now(timezone.utc).isoformat()})
     session_token = data["session_token"]
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     await db.user_sessions.insert_one({"user_id": user_id, "session_token": session_token, "expires_at": expires_at.isoformat(), "created_at": datetime.now(timezone.utc).isoformat()})
     response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 60 * 60)
-    return {"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "session_token": session_token}
+    return {"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "role": "teacher", "session_token": session_token}
 
 
 @api_router.get("/auth/me")
@@ -88,6 +264,7 @@ async def logout(request: Request, response: Response):
     if token:
         await db.user_sessions.delete_one({"session_token": token})
     response.delete_cookie("session_token", path="/")
+    response.delete_cookie("access_token", path="/")
     return {"success": True}
 
 
@@ -160,6 +337,19 @@ async def seed():
         await db.groups.insert_many([dict(x) for x in SEED_GROUPS])
     if await db.orders.count_documents({}) == 0:
         await db.orders.insert_many([dict(x) for x in SEED_ORDERS])
+    demo = [
+        {"email": "teacher@cygnusrift.io", "name": "Elena Voss", "role": "teacher", "specialization": "Immersive Cinematography", "phone": "+1 555 0100"},
+        {"email": "student@cygnusrift.io", "name": "Liam Carter", "role": "student", "specialization": None, "phone": "+1 555 0101"},
+    ]
+    for d in demo:
+        if not await db.users.find_one({"email": d["email"]}):
+            await db.users.insert_one({
+                "user_id": f"user_{uuid.uuid4().hex[:12]}", "email": d["email"], "name": d["name"],
+                "password_hash": hash_password("password123"), "role": d["role"],
+                "specialization": d["specialization"], "phone": d["phone"], "picture": None,
+                "auth_provider": "password", "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+    await db.users.create_index("email", unique=True)
 
 
 # ---------------- Dashboard ----------------

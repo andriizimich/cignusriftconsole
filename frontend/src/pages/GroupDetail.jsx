@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Pencil, Trash2, Building2, UserRound, FileText } from "lucide-react";
 import { api } from "@/lib/api";
@@ -10,9 +10,10 @@ import { fmtDate } from "@/components/OrdersTable";
 export default function GroupDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [g, setG] = useState(null);
 
-  useEffect(() => { api.get(`/groups/${id}`).then((r) => setG(r.data)).catch(() => navigate("/dashboard/groups")); }, [id, navigate]);
+  useEffect(() => { api.get(`/groups/${id}`).then((r) => setG(r.data)).catch(() => navigate("/dashboard/groups")); }, [id, location.key, navigate]);
   if (!g) return null;
 
   const remove = async () => {
