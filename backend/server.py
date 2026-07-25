@@ -334,7 +334,7 @@ async def content_blocks(type: Optional[str] = None, q: Optional[str] = None, ca
     if q:
         query["title"] = {"$regex": q, "$options": "i"}
     total = await db.content_blocks.count_documents(query)
-    items = await db.content_blocks.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    items = await db.content_blocks.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     return {"items": items, "total": total}
 
 
