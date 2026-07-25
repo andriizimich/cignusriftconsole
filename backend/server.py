@@ -378,7 +378,7 @@ class LessonIn(BaseModel):
     title: str
     description: str = ""
     category: str
-    duration: int = 60
+    duration: int = 40
     theory_ids: List[str] = []
     practice_ids: List[str] = []
     quizzes: List[dict] = []
@@ -418,6 +418,8 @@ def _validate_lesson(body: LessonIn):
         raise HTTPException(status_code=400, detail="At least one theory block is required")
     if not body.practice_ids:
         raise HTTPException(status_code=400, detail="At least one practice block is required")
+    if not (1 <= body.duration <= 40):
+        raise HTTPException(status_code=400, detail="Session duration must be between 1 and 40 minutes")
 
 
 @api_router.post("/lessons")
@@ -589,6 +591,8 @@ async def create_booking(body: BookingIn, request: Request):
 
 @api_router.put("/bookings/{bid}")
 async def update_booking(bid: str, body: BookingEditIn):
+    if body.duration is not None and not (1 <= body.duration <= 40):
+        raise HTTPException(status_code=400, detail="Duration must be between 1 and 40 minutes")
     upd = {k: v for k, v in body.model_dump().items() if v is not None}
     res = await db.bookings.update_one({"id": bid}, {"$set": upd})
     if res.matched_count == 0:

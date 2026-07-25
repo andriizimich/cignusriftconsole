@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -13,6 +13,13 @@ export default function Lessons() {
   const [view, setView] = useState("grid");
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
+  const [sort, setSort] = useState({ field: "title", dir: "asc" });
+
+  const sorted = useMemo(() => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const val = (l) => (sort.field === "duration" ? l.duration : (l[sort.field] || "").toLowerCase());
+    return [...lessons].sort((a, b) => { const va = val(a), vb = val(b); return va < vb ? -dir : va > vb ? dir : 0; });
+  }, [lessons, sort]);
 
   const load = () => {
     const params = {};
@@ -37,17 +44,23 @@ export default function Lessons() {
           <option value="">All categories</option>
           {Object.entries(cats).map(([grp, items]) => <optgroup key={grp} label={grp}>{items.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}
         </select>
+        <select data-testid="lesson-sort-field" value={sort.field} onChange={(e) => setSort((s) => ({ ...s, field: e.target.value }))} className={selCls}>
+          <option value="title">Sort: Title</option>
+          <option value="category">Sort: Category</option>
+          <option value="duration">Sort: Duration</option>
+        </select>
+        <button data-testid="lesson-sort-dir" onClick={() => setSort((s) => ({ ...s, dir: s.dir === "asc" ? "desc" : "asc" }))} className={selCls + " uppercase"}>{sort.dir === "asc" ? "Asc ↑" : "Desc ↓"}</button>
         <div className="flex overflow-hidden rounded-md border border-white/10">
           <button data-testid="lesson-view-grid" onClick={() => setView("grid")} className={`p-2 ${view === "grid" ? "bg-[#0066FF] text-white" : "text-zinc-500 hover:text-white"}`}><LayoutGrid className="h-4 w-4" /></button>
           <button data-testid="lesson-view-table" onClick={() => setView("table")} className={`p-2 ${view === "table" ? "bg-[#0066FF] text-white" : "text-zinc-500 hover:text-white"}`}><Table2 className="h-4 w-4" /></button>
         </div>
       </div>
 
-      {lessons.length === 0 && <p className="text-sm text-zinc-500">No lessons match your filters.</p>}
+      {sorted.length === 0 && <p className="text-sm text-zinc-500">No lessons match your filters.</p>}
 
       {view === "grid" ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {lessons.map((l, i) => (
+          {sorted.map((l, i) => (
             <motion.div key={l.id} data-testid={`lesson-card-${l.id}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: i * 0.04 }} whileHover={{ y: -4 }} onClick={() => navigate(`/dashboard/lessons/${l.id}`)} className="group cursor-pointer rounded-lg border border-white/[0.07] bg-[#0A0A0B] p-6 transition-colors hover:border-[#0066FF]/30">
               <span className="inline-flex items-center gap-1.5 rounded-sm bg-[#B800FF]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[#B800FF]"><Tag className="h-3 w-3" />{l.category}</span>
               <h3 className="mt-4 font-display text-lg font-medium tracking-tight text-white">{l.title}</h3>
@@ -67,7 +80,7 @@ export default function Lessons() {
           <table className="w-full border-collapse text-sm">
             <thead><tr className="text-left text-[10px] uppercase tracking-[0.18em] text-zinc-500">{["Title", "Category", "Teacher", "Duration", "Action"].map((h) => <th key={h} className="border-b border-white/[0.06] px-6 py-3 font-medium">{h}</th>)}</tr></thead>
             <tbody>
-              {lessons.map((l) => (
+              {sorted.map((l) => (
                 <tr key={l.id} data-testid={`lesson-row-${l.id}`} onClick={() => navigate(`/dashboard/lessons/${l.id}`)} className="cursor-pointer transition-colors hover:bg-white/[0.03]">
                   <td className="border-b border-white/[0.05] px-6 py-4 text-white">{l.title}</td>
                   <td className="border-b border-white/[0.05] px-6 py-4 text-[#B800FF]">{l.category}</td>

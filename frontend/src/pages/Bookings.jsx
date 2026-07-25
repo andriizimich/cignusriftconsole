@@ -35,6 +35,7 @@ export default function Bookings() {
         case "teacher": return (b.teacher || "").toLowerCase();
         case "lesson_title": return (b.lesson_title || "").toLowerCase();
         case "group_name": return (b.group_name || "").toLowerCase();
+        case "category": return (b.category || "").toLowerCase();
         case "participants": return b.participants || 0;
         default: return b.date;
       }
@@ -75,7 +76,7 @@ export default function Bookings() {
               <SortTh field="date">Date</SortTh>
               <SortTh field="teacher">Teacher</SortTh>
               <SortTh field="lesson_title">Lesson</SortTh>
-              <th className="border-b border-white/[0.06] px-5 py-3 font-medium">Category</th>
+              <SortTh field="category">Category</SortTh>
               <SortTh field="group_name">Group</SortTh>
               <SortTh field="participants" right>Participants</SortTh>
               <th className="border-b border-white/[0.06] px-5 py-3 font-medium">Status</th>

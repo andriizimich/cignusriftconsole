@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { LayoutGrid, GraduationCap, Users, CalendarCheck, User, LogOut, Menu, X, IdCard, ShieldCheck, Bell, Library } from "lucide-react";
+import { LayoutGrid, GraduationCap, Users, CalendarCheck, User, LogOut, Menu, X, IdCard, ShieldCheck, Bell, Plus } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +20,10 @@ const PROFILE_SUB = [
   { to: "/dashboard/profile/security", label: "Security", icon: ShieldCheck, testid: "nav-profile-security" },
   { to: "/dashboard/profile/notifications", label: "Notifications", icon: Bell, testid: "nav-profile-notifications" },
 ];
+const SESSIONS_SUB = [
+  { to: "/dashboard/lessons/new", label: "New Session", icon: Plus, testid: "nav-new-session" },
+];
+const SUBMENUS = { "/dashboard/profile": PROFILE_SUB, "/dashboard/lessons": SESSIONS_SUB };
 
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth();
@@ -36,7 +40,8 @@ export default function DashboardLayout({ children }) {
     <>
       {NAV.map((item) => {
         const Icon = item.icon;
-        const isProfile = item.to === "/dashboard/profile";
+        const sub = SUBMENUS[item.to];
+        const showSub = sub && location.pathname.startsWith(item.to);
         return (
           <div key={item.to}>
             <NavLink to={item.to} end={item.end} data-testid={item.testid} onClick={onNavigate}
@@ -47,12 +52,12 @@ export default function DashboardLayout({ children }) {
                 <span className="tracking-tight">{item.label}</span>
               </>)}
             </NavLink>
-            {isProfile && onProfile && (
+            {showSub && (
               <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-3">
-                {PROFILE_SUB.map((s) => {
+                {sub.map((s) => {
                   const SIcon = s.icon;
                   return (
-                    <NavLink key={s.to} to={s.to} data-testid={s.testid} onClick={onNavigate}
+                    <NavLink key={s.to} to={s.to} end data-testid={s.testid} onClick={onNavigate}
                       className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-xs transition-colors ${isActive ? "text-[#0066FF]" : "text-zinc-600 hover:text-zinc-300"}`}>
                       <SIcon className="h-3.5 w-3.5" /> {s.label}
                     </NavLink>

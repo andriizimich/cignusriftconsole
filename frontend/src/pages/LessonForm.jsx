@@ -16,7 +16,7 @@ export default function LessonForm() {
   const navigate = useNavigate();
   const editing = Boolean(id);
   const [cats, setCats] = useState({});
-  const [f, setF] = useState({ title: "", description: "", category: "", duration: 60 });
+  const [f, setF] = useState({ title: "", description: "", category: "", duration: 40 });
   const [selected, setSelected] = useState({ theory: [], practice: [] });
   const [quizzes, setQuizzes] = useState({});
   const [modal, setModal] = useState(null); // 'theory' | 'practice' | null
@@ -121,7 +121,7 @@ export default function LessonForm() {
         <div><label className={lbl}>Short Description</label><textarea data-testid="lesson-desc-input" rows={2} className={inp} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
         <div className="grid gap-5 sm:grid-cols-2">
           <div><label className={lbl}>Category *</label><select data-testid="lesson-category-select" className={inp} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}><option value="">Select category</option>{Object.entries(cats).map(([g, items]) => <optgroup key={g} label={g}>{items.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}</select></div>
-          <div><label className={lbl}>Duration (min)</label><input data-testid="lesson-duration-input" type="number" className={inp} value={f.duration} onChange={(e) => setF({ ...f, duration: Number(e.target.value) })} /></div>
+          <div><label className={lbl}>Duration (min · max 40)</label><input data-testid="lesson-duration-input" type="number" min={1} max={40} className={inp} value={f.duration} onChange={(e) => setF({ ...f, duration: Math.min(40, Math.max(1, Number(e.target.value) || 1)) })} /></div>
         </div>
         <div className="border-t border-white/[0.06] pt-6"><Section type="theory" accent="#0066FF" /></div>
         <div className="border-t border-white/[0.06] pt-6"><Section type="practice" accent="#00FF66" /></div>
