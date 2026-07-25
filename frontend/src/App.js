@@ -9,6 +9,7 @@ import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
 import Summary from "@/pages/Summary";
 import Lessons from "@/pages/Lessons";
+import Library from "@/pages/Library";
 import LessonDetail from "@/pages/LessonDetail";
 import LessonForm from "@/pages/LessonForm";
 import Groups from "@/pages/Groups";
@@ -49,6 +50,7 @@ function AppRouter() {
       <Route path="/dashboard" element={<Protected><RoleHome /></Protected>} />
 
       <Route path="/dashboard/lessons" element={<Protected teacherOnly><Lessons /></Protected>} />
+      <Route path="/dashboard/library" element={<Protected teacherOnly><Library /></Protected>} />
       <Route path="/dashboard/lessons/new" element={<Protected teacherOnly><LessonForm /></Protected>} />
       <Route path="/dashboard/lessons/:id" element={<Protected teacherOnly><LessonDetail /></Protected>} />
       <Route path="/dashboard/lessons/:id/edit" element={<Protected teacherOnly><LessonForm /></Protected>} />

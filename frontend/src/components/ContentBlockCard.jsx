@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { toast } from "sonner";
 import { Play, Clock, X } from "lucide-react";
+
+export const blockDuration = (b) => (b.type === "practice" || b.approx ? `~${b.duration} min` : `${b.duration} min`);
 
 export const ContentBlockCard = ({ block, onRemove, testid }) => {
   const [preview, setPreview] = useState(false);
   return (
     <div data-testid={testid} className="group relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0A0A0B]">
       <div className="relative aspect-video overflow-hidden">
-        <img src={block.thumbnail} alt={block.title} className="h-full w-full object-cover" />
+        <img src={block.thumbnail} alt={block.title} loading="lazy" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-black/40" />
         <button onClick={() => setPreview(true)} className="absolute inset-0 flex items-center justify-center" title="Preview">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md ring-1 ring-white/30 transition-transform group-hover:scale-110"><Play className="h-5 w-5 text-white" /></span>
@@ -18,9 +19,9 @@ export const ContentBlockCard = ({ block, onRemove, testid }) => {
       <div className="p-4">
         <p className="truncate text-sm text-white">{block.title}</p>
         <div className="mt-2 flex items-center gap-3 text-[11px] text-zinc-500">
-          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {block.duration} min</span>
-          <span>{block.category}</span>
-          <span className="ml-auto text-zinc-600">{block.created_at}</span>
+          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {blockDuration(block)}</span>
+          <span className="truncate">{block.category}</span>
+          <span className="ml-auto shrink-0 text-zinc-600">{block.created_at}</span>
         </div>
       </div>
 

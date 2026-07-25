@@ -15,13 +15,11 @@ export default function Summary() {
   const [data, setData] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [groups, setGroups] = useState([]);
-  const [news, setNews] = useState([]);
 
   useEffect(() => {
     api.get("/dashboard/summary").then((r) => setData(r.data));
     api.get("/bookings").then((r) => setBookings(r.data));
     api.get("/groups").then((r) => setGroups(r.data));
-    api.get("/news").then((r) => setNews(r.data));
   }, []);
 
   const a = data?.analytics;
@@ -95,25 +93,14 @@ export default function Summary() {
         </Widget>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Widget testid="groups-preview-widget" title="Groups" className="lg:col-span-2" action={<Link to="/dashboard/groups" className="text-xs text-[#0066FF] hover:underline">View all</Link>}>
-          <div className="divide-y divide-white/[0.05]">
-            {groups.slice(0, 3).map((g) => (
+      <div className="mt-6">
+        <Widget testid="groups-preview-widget" title="Groups" action={<Link to="/dashboard/groups" className="text-xs text-[#0066FF] hover:underline">View all</Link>}>
+          <div className="grid grid-cols-1 divide-y divide-white/[0.05] sm:grid-cols-2 sm:divide-y-0">
+            {groups.slice(0, 4).map((g) => (
               <div key={g.id} className="flex items-center gap-4 px-6 py-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#B800FF]/10 font-display text-sm text-[#B800FF] ring-1 ring-[#B800FF]/20">{g.name[0]}</div>
                 <div className="min-w-0 flex-1"><p className="truncate text-sm text-white">{g.name}</p><p className="truncate text-xs text-zinc-500">{g.direction}</p></div>
                 <div className="text-right"><p className="font-display text-lg font-light text-white">{g.students}</p><p className="text-[10px] uppercase tracking-widest text-zinc-600">Students</p></div>
-              </div>
-            ))}
-          </div>
-        </Widget>
-
-        <Widget testid="news-widget" title="Announcements">
-          <div className="max-h-[320px] divide-y divide-white/[0.05] overflow-y-auto">
-            {news.map((n) => (
-              <div key={n.id} className="px-6 py-4">
-                <div className="mb-2 flex items-center gap-2"><span className="rounded-sm bg-[#0066FF]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#0066FF]">{n.tag}</span><span className="text-[11px] text-zinc-600">{fmtDateShort(n.date)}</span></div>
-                <p className="text-sm text-white">{n.title}</p><p className="mt-1 text-xs text-zinc-500">{n.summary}</p>
               </div>
             ))}
           </div>

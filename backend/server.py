@@ -96,6 +96,13 @@ async def require_user(request: Request) -> dict:
     return u
 
 
+async def require_teacher(request: Request) -> dict:
+    u = await require_user(request)
+    if u.get("role") == "student":
+        raise HTTPException(status_code=403, detail="Teacher access required")
+    return u
+
+
 # ---------------- Auth models ----------------
 class RegisterIn(BaseModel):
     name: str
@@ -318,9 +325,25 @@ async def categories():
 
 
 @api_router.get("/content-blocks")
-async def content_blocks(type: Optional[str] = None):
-    q = {"type": type} if type else {}
-    return await db.content_blocks.find(q, {"_id": 0}).to_list(200)
+async def content_blocks(type: Optional[str] = None, q: Optional[str] = None, category: Optional[str] = None, skip: int = 0, limit: int = 24):
+    query = {}
+    if type:
+        query["type"] = type
+    if category:
+        query["category"] = category
+    if q:
+        query["title"] = {"$regex": q, "$options": "i"}
+    total = await db.content_blocks.count_documents(query)
+    items = await db.content_blocks.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    return {"items": items, "total": total}
+
+
+@api_router.get("/content-blocks/by-ids")
+async def content_blocks_by_ids(ids: str = ""):
+    id_list = [x for x in ids.split(",") if x]
+    items = await db.content_blocks.find({"id": {"$in": id_list}}, {"_id": 0}).to_list(200)
+    bmap = {b["id"]: b for b in items}
+    return [bmap[i] for i in id_list if i in bmap]
 
 
 @api_router.get("/students")
@@ -342,7 +365,8 @@ class StudentIn(BaseModel):
 
 
 @api_router.post("/students")
-async def add_student(body: StudentIn):
+async def add_student(body: StudentIn, request: Request):
+    await require_teacher(request)
     sid = f"U-{uuid.uuid4().hex[:6]}"
     doc = {"id": sid, **body.model_dump()}
     await db.students.insert_one(dict(doc))
@@ -398,7 +422,7 @@ def _validate_lesson(body: LessonIn):
 
 @api_router.post("/lessons")
 async def create_lesson(body: LessonIn, request: Request):
-    user = await require_user(request)
+    user = await require_teacher(request)
     _validate_lesson(body)
     lid = f"L-{uuid.uuid4().hex[:6]}"
     doc = {"id": lid, **body.model_dump(), "teacher": user.get("name", "Instructor"), "created_at": datetime.now(timezone.utc).date().isoformat()}
@@ -450,7 +474,7 @@ async def get_group(gid: str):
 
 @api_router.post("/groups")
 async def create_group(body: GroupIn, request: Request):
-    user = await require_user(request)
+    user = await require_teacher(request)
     gid = f"G-{uuid.uuid4().hex[:6]}"
     doc = {"id": gid, **body.model_dump(), "teacher": user.get("name", "Instructor"), "created_at": datetime.now(timezone.utc).date().isoformat()}
     await db.groups.insert_one(dict(doc))
@@ -553,7 +577,7 @@ async def get_booking(bid: str):
 
 @api_router.post("/bookings")
 async def create_booking(body: BookingIn, request: Request):
-    user = await require_user(request)
+    user = await require_teacher(request)
     lesson = await db.lessons.find_one({"id": body.lesson_id}, {"_id": 0})
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
@@ -626,8 +650,8 @@ async def root():
 FIRST = ["Liam", "Sofia", "Noah", "Maya", "Ethan", "Chloe", "Omar", "Isla", "Lucas", "Ava", "Mateo", "Zara", "Hugo", "Nina", "Kai", "Lena", "Diego", "Amara", "Felix", "Yuki", "Aria", "Ravi", "Elena", "Marco", "Priya", "Sven", "Leila", "Oscar", "Mila", "Tariq", "Freya", "Ivan", "Sara", "Dominic", "Naomi", "Pavel", "Rosa", "Kenji", "Vera", "Andre", "Lucia", "Malik", "Ingrid", "Cyrus", "Dahlia", "Bjorn", "Anya", "Rex", "Talia", "Emil"]
 LAST = ["Carter", "Rossi", "Kim", "Singh", "Brooks", "Dubois", "Haddad", "Murphy", "Nguyen", "Silva", "Kowalski", "Okafor", "Tanaka", "Weber", "Costa", "Popov", "Reyes", "Andersson", "Bauer", "Moreau", "Ivanov", "Schmidt", "Larsen", "Novak", "Petrov", "Fisher", "Hassan", "Lindqvist", "Marino", "Ferreira"]
 INSTITUTIONS = [("Global Fund Institute", "Investment Training"), ("Nova Academy", "Internship Program"), ("Orion Consulting", "Advisory Practice"), ("Vertex Corp", "Learning & Development"), ("Helix Robotics", "Field Engineering"), ("Aurora Health", "Clinical Onboarding"), ("Meridian Defense", "Tactical Simulation"), ("Cygnus University", "Immersive Media")]
-THEORY_TITLES = ["Cinematic Framing Fundamentals", "Lumen Global Illumination", "Spatial Storytelling", "MetaHuman Behaviour Models", "Prompt Design Principles", "Crisis Communication Theory", "Ethics of Immersive Training", "Non-verbal Signal Reading"]
-PRACTICE_TITLES = ["Relight a VR Set", "MetaHuman Interview Drill", "Nanite Environment Build", "Board Pitch Roleplay", "Crisis Scenario Branching", "Spatial Replay Analysis", "Field Safety Simulation", "Consulting Decision Sim"]
+THEORY_BASE = ["Cinematic Framing", "Global Illumination", "Spatial Storytelling", "MetaHuman Behaviour", "Prompt Design", "Crisis Communication", "Ethics of Immersion", "Non-verbal Signals", "Colour Grading", "Sound Design", "Narrative Pacing", "Camera Language", "Lighting Theory", "Scene Composition", "Cognitive Load", "Adaptive Briefing", "Risk Assessment", "Compliance Basics", "Situational Awareness", "Decision Frameworks", "Anatomy of Trust", "Feedback Loops", "Signal vs Noise", "Emotional Cues", "Environmental Design", "Material Systems", "Physics of Light", "Perception Models", "Debrief Methods", "Scenario Theory"]
+PRACTICE_BASE = ["Relight a VR Set", "Interview Drill", "Environment Build", "Board Pitch Roleplay", "Crisis Branching", "Replay Analysis", "Safety Simulation", "Decision Sim", "Triage Exercise", "Negotiation Lab", "Assembly Task", "Inspection Round", "Rescue Drill", "Diagnostic Run", "Field Deployment"]
 
 
 async def seed():
@@ -662,20 +686,22 @@ async def seed():
     if await db.content_blocks.count_documents({}) == 0:
         blocks = []
         rng = random.Random(7)
-        for i, t in enumerate(THEORY_TITLES):
-            blocks.append({"id": f"CT-{i+1:02d}", "title": t, "type": "theory", "thumbnail": f"https://picsum.photos/seed/theory{i}/400/240", "duration": rng.choice([8, 10, 12, 15]), "category": ALL_CATEGORIES[i % len(ALL_CATEGORIES)], "created_at": f"2026-0{rng.randint(1,6)}-1{rng.randint(0,9)}"})
-        for i, t in enumerate(PRACTICE_TITLES):
-            blocks.append({"id": f"CP-{i+1:02d}", "title": t, "type": "practice", "thumbnail": f"https://picsum.photos/seed/practice{i}/400/240", "duration": rng.choice([20, 25, 30, 40]), "category": ALL_CATEGORIES[i % len(ALL_CATEGORIES)], "created_at": f"2026-0{rng.randint(1,6)}-1{rng.randint(0,9)}"})
+        for i in range(300):
+            base = THEORY_BASE[i % len(THEORY_BASE)]
+            blocks.append({"id": f"CT-{i+1:03d}", "title": f"{base} {i // len(THEORY_BASE) + 1:02d}", "type": "theory", "thumbnail": f"https://picsum.photos/seed/theory{i}/400/240", "duration": rng.randint(3, 10), "category": ALL_CATEGORIES[i % len(ALL_CATEGORIES)], "created_at": f"2026-{rng.randint(1,6):02d}-{rng.randint(1,28):02d}"})
+        for i in range(70):
+            base = PRACTICE_BASE[i % len(PRACTICE_BASE)]
+            blocks.append({"id": f"CP-{i+1:03d}", "title": f"{base} {i // len(PRACTICE_BASE) + 1:02d}", "type": "practice", "thumbnail": f"https://picsum.photos/seed/practice{i}/400/240", "duration": 10, "approx": True, "category": ALL_CATEGORIES[i % len(ALL_CATEGORIES)], "created_at": f"2026-{rng.randint(1,6):02d}-{rng.randint(1,28):02d}"})
         await db.content_blocks.insert_many(blocks)
 
     if await db.lessons.count_documents({}) == 0:
         lessons = [
-            {"id": "L-001", "title": "MetaHuman Interview Simulation", "category": "MetaHuman Interaction" if False else "Psychology", "duration": 90, "theory_ids": ["CT-04", "CT-08"], "practice_ids": ["CP-02"], "quizzes": [{"id": "Q1", "question": "What signals build rapport fastest?", "options": ["Eye contact", "Silence", "Interrupting", "Note-taking"], "correct": 0, "show_after": "end"}]},
-            {"id": "L-002", "title": "Lumen Lighting Theory + Practice", "category": "Computer Science", "duration": 60, "theory_ids": ["CT-02"], "practice_ids": ["CP-01"], "quizzes": [{"id": "Q1", "question": "Lumen provides?", "options": ["Global illumination", "Physics", "Audio", "Networking"], "correct": 0, "show_after": "end"}]},
-            {"id": "L-003", "title": "Enterprise Consulting Simulation", "category": "Finance", "duration": 120, "theory_ids": ["CT-06"], "practice_ids": ["CP-04", "CP-08"], "quizzes": [{"id": "Q1", "question": "A good pitch opens with?", "options": ["The ask", "A hook", "Pricing", "Legal"], "correct": 1, "show_after": "end"}]},
-            {"id": "L-004", "title": "Crisis Response Scenario", "category": "Law Enforcement", "duration": 75, "theory_ids": ["CT-06", "CT-07"], "practice_ids": ["CP-05"], "quizzes": [{"id": "Q1", "question": "First step in a crisis?", "options": ["Assess", "Panic", "Delegate blame", "Wait"], "correct": 0, "show_after": "end"}]},
-            {"id": "L-005", "title": "Nanite Environment Walkthrough", "category": "Architecture", "duration": 75, "theory_ids": ["CT-01", "CT-03"], "practice_ids": ["CP-03"], "quizzes": [{"id": "Q1", "question": "Nanite optimizes?", "options": ["Geometry", "Sound", "AI", "Text"], "correct": 0, "show_after": "end"}]},
-            {"id": "L-006", "title": "Field Safety Simulation", "category": "Corporate Safety", "duration": 60, "theory_ids": ["CT-07"], "practice_ids": ["CP-07"], "quizzes": [{"id": "Q1", "question": "PPE stands for?", "options": ["Personal Protective Equipment", "Public Policy Exam", "Peak Performance Effort", "None"], "correct": 0, "show_after": "end"}]},
+            {"id": "L-001", "title": "MetaHuman Interview Simulation", "category": "Psychology", "duration": 90, "theory_ids": ["CT-004", "CT-008"], "practice_ids": ["CP-002"], "quizzes": [{"id": "Q1", "block_id": "CT-004", "question": "What signals build rapport fastest?", "options": ["Eye contact", "Silence", "Interrupting", "Note-taking"], "correct": 0}, {"id": "Q2", "block_id": "CP-002", "question": "A strong interview opens with?", "options": ["A hook", "Pricing", "Silence", "Legal"], "correct": 0}]},
+            {"id": "L-002", "title": "Lumen Lighting Theory + Practice", "category": "Computer Science", "duration": 60, "theory_ids": ["CT-002"], "practice_ids": ["CP-001"], "quizzes": [{"id": "Q1", "block_id": "CT-002", "question": "Lumen provides?", "options": ["Global illumination", "Physics", "Audio", "Networking"], "correct": 0}]},
+            {"id": "L-003", "title": "Enterprise Consulting Simulation", "category": "Finance", "duration": 120, "theory_ids": ["CT-006"], "practice_ids": ["CP-004", "CP-008"], "quizzes": [{"id": "Q1", "block_id": "CP-004", "question": "A good pitch opens with?", "options": ["The ask", "A hook", "Pricing", "Legal"], "correct": 1}]},
+            {"id": "L-004", "title": "Crisis Response Scenario", "category": "Law Enforcement", "duration": 75, "theory_ids": ["CT-006", "CT-007"], "practice_ids": ["CP-005"], "quizzes": [{"id": "Q1", "block_id": "CT-006", "question": "First step in a crisis?", "options": ["Assess", "Panic", "Delegate blame", "Wait"], "correct": 0}]},
+            {"id": "L-005", "title": "Nanite Environment Walkthrough", "category": "Architecture", "duration": 75, "theory_ids": ["CT-001", "CT-003"], "practice_ids": ["CP-003"], "quizzes": [{"id": "Q1", "block_id": "CP-003", "question": "Nanite optimizes?", "options": ["Geometry", "Sound", "AI", "Text"], "correct": 0}]},
+            {"id": "L-006", "title": "Field Safety Simulation", "category": "Corporate Safety", "duration": 60, "theory_ids": ["CT-007"], "practice_ids": ["CP-007"], "quizzes": [{"id": "Q1", "block_id": "CT-007", "question": "PPE stands for?", "options": ["Personal Protective Equipment", "Public Policy Exam", "Peak Performance Effort", "None"], "correct": 0}]},
         ]
         for l in lessons:
             l["teacher"] = "Elena Voss"
