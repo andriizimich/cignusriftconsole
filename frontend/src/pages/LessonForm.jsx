@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Check, X, HelpCircle, Plus, LibraryBig } from "lucide-react";
+import { ArrowLeft, Check, X, HelpCircle, Plus, LibraryBig, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { blockDuration } from "@/components/ContentBlockCard";
 import { LibraryPickerModal } from "@/components/LibraryPickerModal";
@@ -20,8 +20,14 @@ export default function LessonForm() {
   const [selected, setSelected] = useState({ theory: [], practice: [] });
   const [quizzes, setQuizzes] = useState({});
   const [modal, setModal] = useState(null); // 'theory' | 'practice' | null
+  const [quickQ, setQuickQ] = useState({ theory: "", practice: "" });
+  const [quickRes, setQuickRes] = useState({ theory: [], practice: [] });
 
   useEffect(() => { api.get("/categories").then((r) => setCats(r.data)); }, []);
+  useEffect(() => { api.get("/content-blocks", { params: { type: "theory", q: quickQ.theory, limit: 6 } }).then((r) => setQuickRes((s) => ({ ...s, theory: r.data.items }))); }, [quickQ.theory]);
+  useEffect(() => { api.get("/content-blocks", { params: { type: "practice", q: quickQ.practice, limit: 6 } }).then((r) => setQuickRes((s) => ({ ...s, practice: r.data.items }))); }, [quickQ.practice]);
+
+  const addBlock = (type, b) => setSelected((s) => (s[type].some((x) => x.id === b.id) ? s : { ...s, [type]: [...s[type], b] }));
 
   useEffect(() => {
     if (!editing) return;
@@ -74,10 +80,22 @@ export default function LessonForm() {
 
   const Section = ({ type, accent }) => (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <p className={lbl + " mb-0"}>{type === "theory" ? "Theory" : "Practice"} Blocks * <span className="text-zinc-600">({selected[type].length})</span></p>
-        <button type="button" data-testid={`browse-${type}`} onClick={() => setModal(type)} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors" style={{ borderColor: `${accent}55`, color: accent }}><LibraryBig className="h-3.5 w-3.5" /> Browse Library</button>
+      <div className="mb-3 flex items-center gap-2">
+        <div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" /><input data-testid={`search-${type}`} className={`${inp} pl-9`} value={quickQ[type]} onChange={(e) => setQuickQ((s) => ({ ...s, [type]: e.target.value }))} placeholder={`Search ${type} library...`} /></div>
+        <button type="button" data-testid={`browse-${type}`} onClick={() => setModal(type)} className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-4 py-2.5 text-sm transition-colors" style={{ borderColor: `${accent}55`, color: accent }}><LibraryBig className="h-4 w-4" /> Library</button>
       </div>
+      {quickQ[type] && (
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {quickRes[type].map((b) => (
+            <button key={b.id} type="button" data-testid={`quick-${type}-${b.id}`} onClick={() => addBlock(type, b)} className="flex items-center gap-2 rounded-md border border-white/[0.07] p-2 text-left hover:border-[#0066FF]/40">
+              <img src={b.thumbnail} alt="" loading="lazy" className="h-9 w-14 rounded object-cover" />
+              <div className="min-w-0"><p className="truncate text-[11px] text-white">{b.title}</p><p className="text-[10px] text-zinc-500">{blockDuration(b)}</p></div>
+            </button>
+          ))}
+          {quickRes[type].length === 0 && <p className="col-span-full text-xs text-zinc-600">No matches — try the full Library.</p>}
+        </div>
+      )}
+      <p className={lbl}>{type === "theory" ? "Theory" : "Practice"} Blocks * <span className="text-zinc-600">({selected[type].length})</span></p>
       {selected[type].length === 0 ? (
         <button type="button" onClick={() => setModal(type)} className="flex w-full items-center justify-center rounded-lg border border-dashed border-white/15 py-8 text-sm text-zinc-500 hover:border-[#0066FF]/40 hover:text-white">Open library to add {type} blocks</button>
       ) : (

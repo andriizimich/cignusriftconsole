@@ -60,8 +60,8 @@ export default function Profile() {
   };
 
   const Toggle = ({ on, onClick, testid }) => (
-    <button data-testid={testid} onClick={onClick} className={`relative h-6 w-11 rounded-full transition-colors ${on ? "bg-[#0066FF]" : "bg-white/10"}`}>
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${on ? "translate-x-5" : "translate-x-0.5"}`} />
+    <button data-testid={testid} onClick={onClick} role="switch" aria-checked={on} className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${on ? "bg-[#0066FF]" : "bg-white/15"}`}>
+      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
     </button>
   );
 

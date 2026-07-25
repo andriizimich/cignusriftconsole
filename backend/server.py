@@ -696,12 +696,12 @@ async def seed():
 
     if await db.lessons.count_documents({}) == 0:
         lessons = [
-            {"id": "L-001", "title": "MetaHuman Interview Simulation", "category": "Psychology", "duration": 90, "theory_ids": ["CT-004", "CT-008"], "practice_ids": ["CP-002"], "quizzes": [{"id": "Q1", "block_id": "CT-004", "question": "What signals build rapport fastest?", "options": ["Eye contact", "Silence", "Interrupting", "Note-taking"], "correct": 0}, {"id": "Q2", "block_id": "CP-002", "question": "A strong interview opens with?", "options": ["A hook", "Pricing", "Silence", "Legal"], "correct": 0}]},
-            {"id": "L-002", "title": "Lumen Lighting Theory + Practice", "category": "Computer Science", "duration": 60, "theory_ids": ["CT-002"], "practice_ids": ["CP-001"], "quizzes": [{"id": "Q1", "block_id": "CT-002", "question": "Lumen provides?", "options": ["Global illumination", "Physics", "Audio", "Networking"], "correct": 0}]},
-            {"id": "L-003", "title": "Enterprise Consulting Simulation", "category": "Finance", "duration": 120, "theory_ids": ["CT-006"], "practice_ids": ["CP-004", "CP-008"], "quizzes": [{"id": "Q1", "block_id": "CP-004", "question": "A good pitch opens with?", "options": ["The ask", "A hook", "Pricing", "Legal"], "correct": 1}]},
-            {"id": "L-004", "title": "Crisis Response Scenario", "category": "Law Enforcement", "duration": 75, "theory_ids": ["CT-006", "CT-007"], "practice_ids": ["CP-005"], "quizzes": [{"id": "Q1", "block_id": "CT-006", "question": "First step in a crisis?", "options": ["Assess", "Panic", "Delegate blame", "Wait"], "correct": 0}]},
-            {"id": "L-005", "title": "Nanite Environment Walkthrough", "category": "Architecture", "duration": 75, "theory_ids": ["CT-001", "CT-003"], "practice_ids": ["CP-003"], "quizzes": [{"id": "Q1", "block_id": "CP-003", "question": "Nanite optimizes?", "options": ["Geometry", "Sound", "AI", "Text"], "correct": 0}]},
-            {"id": "L-006", "title": "Field Safety Simulation", "category": "Corporate Safety", "duration": 60, "theory_ids": ["CT-007"], "practice_ids": ["CP-007"], "quizzes": [{"id": "Q1", "block_id": "CT-007", "question": "PPE stands for?", "options": ["Personal Protective Equipment", "Public Policy Exam", "Peak Performance Effort", "None"], "correct": 0}]},
+            {"id": "L-001", "title": "MetaHuman Interview Simulation", "category": "Psychology", "duration": 40, "theory_ids": ["CT-004", "CT-008"], "practice_ids": ["CP-002"], "quizzes": [{"id": "Q1", "block_id": "CT-004", "question": "What signals build rapport fastest?", "options": ["Eye contact", "Silence", "Interrupting", "Note-taking"], "correct": 0}, {"id": "Q2", "block_id": "CP-002", "question": "A strong interview opens with?", "options": ["A hook", "Pricing", "Silence", "Legal"], "correct": 0}]},
+            {"id": "L-002", "title": "Lumen Lighting Theory + Practice", "category": "Computer Science", "duration": 30, "theory_ids": ["CT-002"], "practice_ids": ["CP-001"], "quizzes": [{"id": "Q1", "block_id": "CT-002", "question": "Lumen provides?", "options": ["Global illumination", "Physics", "Audio", "Networking"], "correct": 0}]},
+            {"id": "L-003", "title": "Enterprise Consulting Simulation", "category": "Finance", "duration": 40, "theory_ids": ["CT-006"], "practice_ids": ["CP-004", "CP-008"], "quizzes": [{"id": "Q1", "block_id": "CP-004", "question": "A good pitch opens with?", "options": ["The ask", "A hook", "Pricing", "Legal"], "correct": 1}]},
+            {"id": "L-004", "title": "Crisis Response Scenario", "category": "Law Enforcement", "duration": 35, "theory_ids": ["CT-006", "CT-007"], "practice_ids": ["CP-005"], "quizzes": [{"id": "Q1", "block_id": "CT-006", "question": "First step in a crisis?", "options": ["Assess", "Panic", "Delegate blame", "Wait"], "correct": 0}]},
+            {"id": "L-005", "title": "Nanite Environment Walkthrough", "category": "Architecture", "duration": 30, "theory_ids": ["CT-001", "CT-003"], "practice_ids": ["CP-003"], "quizzes": [{"id": "Q1", "block_id": "CP-003", "question": "Nanite optimizes?", "options": ["Geometry", "Sound", "AI", "Text"], "correct": 0}]},
+            {"id": "L-006", "title": "Field Safety Simulation", "category": "Corporate Safety", "duration": 25, "theory_ids": ["CT-007"], "practice_ids": ["CP-007"], "quizzes": [{"id": "Q1", "block_id": "CT-007", "question": "PPE stands for?", "options": ["Personal Protective Equipment", "Public Policy Exam", "Peak Performance Effort", "None"], "correct": 0}]},
         ]
         for l in lessons:
             l["teacher"] = "Elena Voss"
@@ -715,13 +715,11 @@ async def seed():
         rng = random.Random(11)
         directions = ["Computer Science", "Medicine & Nursing", "Finance", "Law Enforcement", "Architecture", "Corporate Safety", "Psychology", "IT"]
         groups = []
-        idx = 0
         for i, dirn in enumerate(directions):
-            count = rng.randint(4, 7)
-            members = sids[idx:idx + count]
-            idx = (idx + count) % max(1, len(sids) - 7)
-            if "U-001" not in members and i < 3:
-                members = ["U-001"] + members
+            count = rng.randint(8, 14)
+            members = rng.sample(sids, min(count, len(sids)))
+            if i < 3 and "U-001" not in members:
+                members = ["U-001"] + members[:-1]
             groups.append({"id": f"G-{i+1:02d}", "name": f"{dirn.split()[0]} Cohort {chr(65+i)}", "direction": dirn, "teacher": "Elena Voss", "created_at": f"2026-0{(i%6)+1}-1{i%9}", "student_ids": members})
         await db.groups.insert_many(groups)
 

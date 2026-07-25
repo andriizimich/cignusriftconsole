@@ -7,7 +7,6 @@ import { useAuth } from "@/context/AuthContext";
 const TEACHER_NAV = [
   { to: "/dashboard", label: "Summary", icon: LayoutGrid, testid: "nav-summary-link", end: true },
   { to: "/dashboard/lessons", label: "Sessions", icon: GraduationCap, testid: "nav-sessions-link" },
-  { to: "/dashboard/library", label: "Library", icon: Library, testid: "nav-library-link" },
   { to: "/dashboard/groups", label: "Groups", icon: Users, testid: "nav-groups-link" },
   { to: "/dashboard/bookings", label: "Bookings", icon: CalendarCheck, testid: "nav-bookings-link" },
   { to: "/dashboard/profile", label: "Profile", icon: User, testid: "nav-profile-link" },

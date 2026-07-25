@@ -54,19 +54,30 @@ export const LibraryPickerModal = ({ open, type, initialBlocks = [], onClose, on
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" data-testid="modal-grid">
-            {data.items.map((b) => {
-              const sel = Boolean(selected[b.id]);
-              return (
-                <button key={b.id} type="button" data-testid={`modal-block-${b.id}`} onClick={() => toggle(b)} className={`relative overflow-hidden rounded-md border text-left transition-colors ${sel ? "border-[#0066FF]" : "border-white/[0.07] hover:border-white/20"}`}>
-                  <div className="relative aspect-video"><img src={b.thumbnail} alt={b.title} loading="lazy" className="h-full w-full object-cover" /><div className="absolute inset-0 bg-black/40" />{sel && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0066FF]"><Check className="h-3 w-3 text-white" /></span>}</div>
-                  <div className="p-2"><p className="truncate text-[11px] text-white">{b.title}</p><p className="text-[10px] text-zinc-500">{blockDuration(b)} · {b.category}</p></div>
-                </button>
-              );
-            })}
-          </div>
-          {data.items.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">No content matches your filters.</p>}
-          <div className="mt-6 flex items-center justify-center gap-4">
+          {(() => {
+            const groups = {};
+            data.items.forEach((b) => { (groups[b.category] = groups[b.category] || []).push(b); });
+            const cats = Object.keys(groups).sort();
+            return cats.length === 0 ? (
+              <p className="py-6 text-center text-sm text-zinc-500">No content matches your filters.</p>
+            ) : cats.map((cat) => (
+              <div key={cat} className="mb-6" data-testid={`modal-cat-${cat}`}>
+                <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-[#0066FF]">{cat} <span className="text-zinc-600">({groups[cat].length})</span></p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {groups[cat].map((b) => {
+                    const sel = Boolean(selected[b.id]);
+                    return (
+                      <button key={b.id} type="button" data-testid={`modal-block-${b.id}`} onClick={() => toggle(b)} className={`relative overflow-hidden rounded-md border text-left transition-colors ${sel ? "border-[#0066FF]" : "border-white/[0.07] hover:border-white/20"}`}>
+                        <div className="relative aspect-video"><img src={b.thumbnail} alt={b.title} loading="lazy" className="h-full w-full object-cover" /><div className="absolute inset-0 bg-black/40" />{sel && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0066FF]"><Check className="h-3 w-3 text-white" /></span>}</div>
+                        <div className="p-2"><p className="truncate text-[11px] text-white">{b.title}</p><p className="text-[10px] text-zinc-500">{blockDuration(b)}</p></div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ));
+          })()}
+          <div className="mt-2 flex items-center justify-center gap-4">
             <button data-testid="modal-prev" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="inline-flex items-center gap-1 rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-400 hover:text-white disabled:opacity-30"><ChevronLeft className="h-4 w-4" /> Prev</button>
             <span className="text-sm text-zinc-500">Page {page + 1} / {totalPages}</span>
             <button data-testid="modal-next" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="inline-flex items-center gap-1 rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-400 hover:text-white disabled:opacity-30">Next <ChevronRight className="h-4 w-4" /></button>
