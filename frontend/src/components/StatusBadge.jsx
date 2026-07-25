@@ -6,6 +6,8 @@ export const statusStyles = {
   in_progress: { label: "In Progress", dot: "#B800FF", text: "text-[#B800FF]", bg: "bg-[#B800FF]/10", ring: "ring-[#B800FF]/20" },
   completed: { label: "Completed", dot: "#00FF66", text: "text-[#00FF66]", bg: "bg-[#00FF66]/10", ring: "ring-[#00FF66]/20" },
   created: { label: "Created", dot: "#71717A", text: "text-zinc-400", bg: "bg-white/5", ring: "ring-white/10" },
+  active: { label: "Active", dot: "#00FF66", text: "text-[#00FF66]", bg: "bg-[#00FF66]/10", ring: "ring-[#00FF66]/20" },
+  archived: { label: "Archived", dot: "#71717A", text: "text-zinc-400", bg: "bg-white/5", ring: "ring-white/10" },
 };
 
 export const StatusBadge = ({ status }) => {

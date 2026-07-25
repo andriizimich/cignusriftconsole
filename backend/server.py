@@ -12,7 +12,7 @@ import random
 from pathlib import Path
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -23,24 +23,18 @@ db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+logger = logging.getLogger(__name__)
 
 EMERGENT_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALG = "HS256"
 
-SPECIALIZATIONS = {
-    "Corporate": [
-        "Leadership & Management", "Sales Enablement", "Customer Success",
-        "Operations & Logistics", "Cybersecurity", "Software Engineering",
-        "Product Management", "HR & People Ops", "Finance & Compliance",
-        "Healthcare & Safety Training",
-    ],
-    "Academic": [
-        "Computer Science", "Mechanical Engineering", "Medicine & Nursing",
-        "Architecture", "Physics", "Mathematics", "Psychology",
-        "Business Administration", "Aviation", "Chemistry",
-    ],
-}
+ACADEMIC = ["Computer Science", "Mechanical Engineering", "Medicine & Nursing", "Architecture", "Physics", "Mathematics", "Psychology", "Business Administration", "Aviation", "Chemistry"]
+SECTORS = ["Medicine", "Law Enforcement", "Military", "Industry", "IT", "Finance", "Retail", "Energy", "Logistics", "Corporate Safety"]
+CATEGORIES = {"Academic Disciplines": ACADEMIC, "Business Sectors": SECTORS}
+ALL_CATEGORIES = ACADEMIC + SECTORS
+
+SPECIALIZATIONS = {"Corporate": SECTORS, "Academic": ACADEMIC}
 
 
 # ---------------- Auth helpers ----------------
@@ -76,32 +70,33 @@ async def get_current_user(request: Request) -> Optional[dict]:
     token = token or request.cookies.get("access_token") or request.cookies.get("session_token")
     if not token:
         return None
-
-    # 1) JWT (email/password + refresh)
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
         if payload.get("type") == "access":
-            u = await db.users.find_one({"user_id": payload["sub"]})
-            return clean_user(u)
+            return clean_user(await db.users.find_one({"user_id": payload["sub"]}))
     except jwt.PyJWTError:
         pass
-
-    # 2) Emergent Google session token
     session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
     if not session:
         return None
-    expires_at = session["expires_at"]
-    if isinstance(expires_at, str):
-        expires_at = datetime.fromisoformat(expires_at)
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
+    exp = session["expires_at"]
+    if isinstance(exp, str):
+        exp = datetime.fromisoformat(exp)
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if exp < datetime.now(timezone.utc):
         return None
-    u = await db.users.find_one({"user_id": session["user_id"]})
-    return clean_user(u)
+    return clean_user(await db.users.find_one({"user_id": session["user_id"]}))
 
 
-# ---------------- Email/Password auth ----------------
+async def require_user(request: Request) -> dict:
+    u = await get_current_user(request)
+    if not u:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return u
+
+
+# ---------------- Auth models ----------------
 class RegisterIn(BaseModel):
     name: str
     email: EmailStr
@@ -109,6 +104,7 @@ class RegisterIn(BaseModel):
     role: str = "student"
     phone: Optional[str] = None
     specialization: Optional[str] = None
+    institution: Optional[str] = None
     accept_terms: bool = False
 
 
@@ -132,6 +128,23 @@ class ResetIn(BaseModel):
     password: str
 
 
+class ProfileIn(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    institution: Optional[str] = None
+    picture: Optional[str] = None
+
+
+class ChangePwIn(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class NotifIn(BaseModel):
+    email_notifications: bool = True
+    push_notifications: bool = True
+
+
 def _set_token_cookie(response: Response, token: str):
     response.set_cookie(key="access_token", value=token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 60 * 60)
 
@@ -149,6 +162,8 @@ async def register(body: RegisterIn, response: Response):
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     if body.role not in ("student", "teacher"):
         raise HTTPException(status_code=400, detail="Invalid role")
+    if body.role == "teacher" and not body.specialization:
+        raise HTTPException(status_code=400, detail="Specialization is required for teachers")
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="An account with this email already exists")
@@ -157,10 +172,18 @@ async def register(body: RegisterIn, response: Response):
         "user_id": user_id, "name": body.name, "email": email,
         "password_hash": hash_password(body.password), "role": body.role,
         "phone": body.phone, "specialization": body.specialization if body.role == "teacher" else None,
-        "picture": None, "auth_provider": "password",
+        "institution": body.institution, "picture": None, "auth_provider": "password",
+        "email_notifications": True, "push_notifications": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(dict(doc))
+    # Register students into the student pool so teachers can add them to groups
+    if body.role == "student":
+        await db.students.update_one(
+            {"email": email},
+            {"$setOnInsert": {"id": f"U-{uuid.uuid4().hex[:6]}"}, "$set": {"name": body.name, "email": email, "phone": body.phone, "institution": body.institution or "Independent", "division": "General"}},
+            upsert=True,
+        )
     token = create_access_token(user_id, email)
     _set_token_cookie(response, token)
     return {**clean_user(dict(doc)), "token": token}
@@ -177,19 +200,57 @@ async def login(body: LoginIn, response: Response):
     return {**clean_user(user), "token": token}
 
 
+@api_router.post("/auth/session")
+async def create_session(request: Request, response: Response):
+    session_id = request.headers.get("X-Session-ID")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing X-Session-ID header")
+    async with httpx.AsyncClient() as http:
+        r = await http.get(EMERGENT_SESSION_URL, headers={"X-Session-ID": session_id})
+    if r.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    data = r.json()
+    existing = await db.users.find_one({"email": data["email"]}, {"_id": 0})
+    if existing:
+        user_id = existing["user_id"]
+        await db.users.update_one({"user_id": user_id}, {"$set": {"name": data["name"], "picture": data.get("picture")}})
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        await db.users.insert_one({"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "role": "teacher", "auth_provider": "google", "email_notifications": True, "push_notifications": True, "created_at": datetime.now(timezone.utc).isoformat()})
+    session_token = data["session_token"]
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    await db.user_sessions.insert_one({"user_id": user_id, "session_token": session_token, "expires_at": expires_at.isoformat(), "created_at": datetime.now(timezone.utc).isoformat()})
+    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 60 * 60)
+    return {"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "role": "teacher", "session_token": session_token}
+
+
+@api_router.get("/auth/me")
+async def auth_me(request: Request):
+    return await require_user(request)
+
+
+@api_router.post("/auth/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("session_token")
+    if not token:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[7:]
+    if token:
+        await db.user_sessions.delete_one({"session_token": token})
+    response.delete_cookie("session_token", path="/")
+    response.delete_cookie("access_token", path="/")
+    return {"success": True}
+
+
 @api_router.post("/auth/forgot-password")
 async def forgot_password(body: ForgotIn):
     email = body.email.lower()
     user = await db.users.find_one({"email": email})
     code = f"{random.randint(0, 999999):06d}"
     if user:
-        await db.password_resets.update_one(
-            {"email": email},
-            {"$set": {"email": email, "code": code, "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat(), "used": False}},
-            upsert=True,
-        )
+        await db.password_resets.update_one({"email": email}, {"$set": {"email": email, "code": code, "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat(), "used": False}}, upsert=True)
         logger.info(f"[password-reset] code for {email}: {code}")
-    # Demo: no email provider configured, so return the code so the user can proceed.
     return {"message": "If the email exists, a code has been sent.", "demo_code": code if user else None}
 
 
@@ -222,200 +283,157 @@ async def reset_password(body: ResetIn):
     return {"success": True}
 
 
-@api_router.post("/auth/session")
-async def create_session(request: Request, response: Response):
-    session_id = request.headers.get("X-Session-ID")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="Missing X-Session-ID header")
-    async with httpx.AsyncClient() as http:
-        r = await http.get(EMERGENT_SESSION_URL, headers={"X-Session-ID": session_id})
-    if r.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid session")
-    data = r.json()
-    existing = await db.users.find_one({"email": data["email"]}, {"_id": 0})
-    if existing:
-        user_id = existing["user_id"]
-        await db.users.update_one({"user_id": user_id}, {"$set": {"name": data["name"], "picture": data.get("picture")}})
-    else:
-        user_id = f"user_{uuid.uuid4().hex[:12]}"
-        await db.users.insert_one({"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "role": "teacher", "auth_provider": "google", "created_at": datetime.now(timezone.utc).isoformat()})
-    session_token = data["session_token"]
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    await db.user_sessions.insert_one({"user_id": user_id, "session_token": session_token, "expires_at": expires_at.isoformat(), "created_at": datetime.now(timezone.utc).isoformat()})
-    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7 * 24 * 60 * 60)
-    return {"user_id": user_id, "email": data["email"], "name": data["name"], "picture": data.get("picture"), "role": "teacher", "session_token": session_token}
+@api_router.put("/auth/profile")
+async def update_profile(body: ProfileIn, request: Request):
+    user = await require_user(request)
+    upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    if upd:
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": upd})
+    return clean_user(await db.users.find_one({"user_id": user["user_id"]}))
 
 
-@api_router.get("/auth/me")
-async def auth_me(request: Request):
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return user
-
-
-@api_router.post("/auth/logout")
-async def logout(request: Request, response: Response):
-    token = request.cookies.get("session_token")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
-    if token:
-        await db.user_sessions.delete_one({"session_token": token})
-    response.delete_cookie("session_token", path="/")
-    response.delete_cookie("access_token", path="/")
+@api_router.post("/auth/change-password")
+async def change_password(body: ChangePwIn, request: Request):
+    user = await require_user(request)
+    full = await db.users.find_one({"user_id": user["user_id"]})
+    if not full.get("password_hash") or not verify_password(body.current_password, full["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
     return {"success": True}
 
 
-# ---------------- Static analytics/news ----------------
-ANALYTICS = {"students": 248, "students_delta": "+12.4%", "sessions_conducted": 96, "sessions_delta": "+8.1%", "learning_progress": 74, "progress_delta": "+5.2%", "homework_completed": 182, "homework_total": 210, "homework_delta": "+3.6%"}
-PROGRESS_SERIES = [{"month": "Jan", "progress": 42, "sessions": 8}, {"month": "Feb", "progress": 51, "sessions": 11}, {"month": "Mar", "progress": 58, "sessions": 13}, {"month": "Apr", "progress": 63, "sessions": 15}, {"month": "May", "progress": 69, "sessions": 18}, {"month": "Jun", "progress": 74, "sessions": 21}]
-NEWS = [
-    {"id": "N-1", "tag": "Release", "title": "Cygnus Rift App v0.9 pushes real-time spatial heatmaps", "date": "2026-06-19", "summary": "Trainers can now overlay participant gaze and movement heatmaps directly on the replay timeline."},
-    {"id": "N-2", "tag": "AI", "title": "Generative narration now supports 14 languages", "date": "2026-06-14", "summary": "Adaptive theory briefings are auto-authored per cohort with localized voice synthesis."},
-    {"id": "N-3", "tag": "Milestone", "title": "Prototype kick-off scheduled for July 2026", "date": "2026-06-10", "summary": "Core immersion loop, session composer and headset sync pipeline enter active build."},
-    {"id": "N-4", "tag": "Partner", "title": "Global Fund joins the first institutional cohort", "date": "2026-06-02", "summary": "Enterprise due-diligence replay tooling enters closed pilot with design partners."},
-]
-TEACHERS = [
-    {"id": "T-1", "name": "Dr. Elena Voss"}, {"id": "T-2", "name": "Marcus Reid"},
-    {"id": "T-3", "name": "Aiko Tanaka"}, {"id": "T-4", "name": "Sam Okafor"},
-]
-COURSES = [
-    {"id": "C-1", "name": "Immersive Cinematography"}, {"id": "C-2", "name": "Prompt Engineering for VR"},
-    {"id": "C-3", "name": "Enterprise Consulting Sim"}, {"id": "C-4", "name": "MetaHuman Interaction"},
-]
-STUDENTS = [
-    {"id": "U-1", "name": "Liam Carter", "attendance": 92, "grade": 88},
-    {"id": "U-2", "name": "Sofia Rossi", "attendance": 85, "grade": 91},
-    {"id": "U-3", "name": "Noah Kim", "attendance": 78, "grade": 74},
-    {"id": "U-4", "name": "Maya Singh", "attendance": 96, "grade": 95},
-    {"id": "U-5", "name": "Ethan Brooks", "attendance": 64, "grade": 69},
-    {"id": "U-6", "name": "Chloe Dubois", "attendance": 88, "grade": 82},
-    {"id": "U-7", "name": "Omar Haddad", "attendance": 90, "grade": 87},
-    {"id": "U-8", "name": "Isla Murphy", "attendance": 73, "grade": 79},
-]
-
-SEED_SESSIONS = [
-    {"id": "S-4821", "title": "MetaHuman Interview Simulation", "group": "Alpha Cohort", "teacher": "Dr. Elena Voss", "date": "2026-06-24", "time": "09:30", "duration": "90 min", "mode": "Hybrid", "status": "scheduled", "description": "Hands-on MetaHuman-driven interview scenarios blended with cinematic theory on non-verbal cues.", "materials": [{"name": "Interview Brief.pdf", "type": "file"}, {"name": "MetaHuman Slides.pptx", "type": "slides"}, {"name": "Reference Reel", "type": "link"}], "homework": {"description": "Record and annotate one 3-minute simulated interview; submit reflection notes.", "submissions": [{"student": "Maya Singh", "grade": "A"}, {"student": "Liam Carter", "grade": "B+"}]}},
-    {"id": "S-4822", "title": "Lumen Lighting Theory + Practice", "group": "Nova Interns", "teacher": "Marcus Reid", "date": "2026-06-24", "time": "13:00", "duration": "60 min", "mode": "Practice", "status": "scheduled", "description": "Real-time global illumination with Lumen, from theory to a hands-on relight of a VR set.", "materials": [{"name": "Lumen Basics.pdf", "type": "file"}, {"name": "Lighting Rig", "type": "link"}], "homework": {"description": "Relight the provided scene and export before/after captures.", "submissions": []}},
-    {"id": "S-4823", "title": "Spatial Replay Debrief", "group": "Orion Consultants", "teacher": "Aiko Tanaka", "date": "2026-06-25", "time": "11:00", "duration": "45 min", "mode": "Theory", "status": "in_progress", "description": "Reviewing recorded decision-making sessions in 3D spatial replay.", "materials": [{"name": "Debrief Framework.pdf", "type": "file"}], "homework": {"description": "Write a due-diligence summary from the replay footage.", "submissions": [{"student": "Omar Haddad", "grade": "A-"}]}},
-    {"id": "S-4824", "title": "Prompt-Engineered Crisis Scenario", "group": "Vertex L&D", "teacher": "Sam Okafor", "date": "2026-06-26", "time": "15:30", "duration": "120 min", "mode": "Hybrid", "status": "scheduled", "description": "Prompt pipelines compose a high-tension crisis simulation with adaptive branching.", "materials": [{"name": "Scenario Prompts.pdf", "type": "file"}, {"name": "Branch Map", "type": "link"}], "homework": {"description": "Author two alternative branches for the crisis scenario.", "submissions": []}},
-    {"id": "S-4825", "title": "Nanite Environment Walkthrough", "group": "Alpha Cohort", "teacher": "Dr. Elena Voss", "date": "2026-06-20", "time": "10:00", "duration": "75 min", "mode": "Practice", "status": "completed", "description": "Building and navigating a Nanite-heavy environment at institutional fidelity.", "materials": [{"name": "Nanite Guide.pdf", "type": "file"}], "homework": {"description": "Optimize the provided mesh and report triangle counts.", "submissions": [{"student": "Sofia Rossi", "grade": "A"}, {"student": "Noah Kim", "grade": "B"}]}},
-    {"id": "S-4826", "title": "Consulting Roleplay: Board Pitch", "group": "Orion Consultants", "teacher": "Aiko Tanaka", "date": "2026-06-18", "time": "14:00", "duration": "90 min", "mode": "Hybrid", "status": "completed", "description": "Virtual boardroom pitch with AI-driven skeptical stakeholders.", "materials": [{"name": "Pitch Rubric.pdf", "type": "file"}], "homework": {"description": "Submit your recorded pitch for peer review.", "submissions": [{"student": "Isla Murphy", "grade": "B+"}]}},
-]
-
-SEED_GROUPS = [
-    {"id": "G-01", "name": "Alpha Cohort", "course": "Immersive Cinematography", "teacher": "Dr. Elena Voss", "students": 32, "limit": 40, "institution": "Global Fund Institute", "division": "Investment Training", "progress": 78, "created_at": "2026-01-12", "student_ids": ["U-1", "U-2", "U-4", "U-6"]},
-    {"id": "G-02", "name": "Nova Interns", "course": "Prompt Engineering for VR", "teacher": "Marcus Reid", "students": 18, "limit": 25, "institution": "Nova Academy", "division": "Internship Program", "progress": 64, "created_at": "2026-02-03", "student_ids": ["U-3", "U-5", "U-7"]},
-    {"id": "G-03", "name": "Orion Consultants", "course": "Enterprise Consulting Sim", "teacher": "Aiko Tanaka", "students": 12, "limit": 15, "institution": "Orion Consulting", "division": "Advisory Practice", "progress": 91, "created_at": "2026-02-20", "student_ids": ["U-7", "U-8", "U-1"]},
-    {"id": "G-04", "name": "Vertex L&D", "course": "MetaHuman Interaction", "teacher": "Sam Okafor", "students": 26, "limit": 30, "institution": "Vertex Corp", "division": "Learning & Development", "progress": 55, "created_at": "2026-03-15", "student_ids": ["U-2", "U-3", "U-6", "U-8"]},
-    {"id": "G-05", "name": "Helix Squad", "course": "Prompt Engineering for VR", "teacher": "Marcus Reid", "students": 9, "limit": 12, "institution": "Helix Robotics", "division": "Field Engineering", "progress": 47, "created_at": "2026-04-01", "student_ids": ["U-4", "U-5"]},
-]
-
-SEED_ORDERS = [
-    {"id": "ORD-90231", "date": "2026-06-18", "client": "Global Fund Institute", "product": "Enterprise VR Program", "amount": 24800, "currency": "USD", "status": "paid", "method": "Wire Transfer", "payer": {"name": "Global Fund Institute", "email": "billing@globalfund.io", "address": "1 Finsbury Ave, London"}, "breakdown": {"subtotal": 26000, "discount": 1200, "tax": 0, "total": 24800, "promo": "COHORT12"}, "history": [{"status": "created", "date": "2026-06-15"}, {"status": "pending", "date": "2026-06-16"}, {"status": "paid", "date": "2026-06-18"}]},
-    {"id": "ORD-90230", "date": "2026-06-16", "client": "Vertex L&D", "product": "Hybrid Session Pack (x20)", "amount": 8600, "currency": "USD", "status": "paid", "method": "Card", "payer": {"name": "Vertex Corp", "email": "ap@vertex.com", "address": "500 Market St, SF"}, "breakdown": {"subtotal": 8600, "discount": 0, "tax": 0, "total": 8600, "promo": None}, "history": [{"status": "created", "date": "2026-06-15"}, {"status": "paid", "date": "2026-06-16"}]},
-    {"id": "ORD-90229", "date": "2026-06-15", "client": "Orion Consulting", "product": "Spatial Replay Add-on", "amount": 3200, "currency": "USD", "status": "pending", "method": "Card", "payer": {"name": "Orion Consulting", "email": "finance@orion.co", "address": "22 King St, Toronto"}, "breakdown": {"subtotal": 3200, "discount": 0, "tax": 0, "total": 3200, "promo": None}, "history": [{"status": "created", "date": "2026-06-14"}, {"status": "pending", "date": "2026-06-15"}]},
-    {"id": "ORD-90228", "date": "2026-06-12", "client": "Nova Academy", "product": "Internship Track", "amount": 15400, "currency": "USD", "status": "paid", "method": "Wire Transfer", "payer": {"name": "Nova Academy", "email": "bursar@nova.edu", "address": "9 Campus Rd, Boston"}, "breakdown": {"subtotal": 16000, "discount": 600, "tax": 0, "total": 15400, "promo": "EDU5"}, "history": [{"status": "created", "date": "2026-06-10"}, {"status": "paid", "date": "2026-06-12"}]},
-    {"id": "ORD-90227", "date": "2026-06-09", "client": "Helix Robotics", "product": "MetaHuman Scenario License", "amount": 5100, "currency": "USD", "status": "failed", "method": "Card", "payer": {"name": "Helix Robotics", "email": "pay@helix.ai", "address": "77 Innovation Dr, Austin"}, "breakdown": {"subtotal": 5100, "discount": 0, "tax": 0, "total": 5100, "promo": None}, "history": [{"status": "created", "date": "2026-06-08"}, {"status": "failed", "date": "2026-06-09"}]},
-    {"id": "ORD-90226", "date": "2026-06-05", "client": "Aurora Health", "product": "Onboarding Curriculum", "amount": 11250, "currency": "USD", "status": "pending", "method": "Wire Transfer", "payer": {"name": "Aurora Health", "email": "accounts@aurora.health", "address": "3 Wellness Way, Denver"}, "breakdown": {"subtotal": 11250, "discount": 0, "tax": 0, "total": 11250, "promo": None}, "history": [{"status": "created", "date": "2026-06-04"}, {"status": "pending", "date": "2026-06-05"}]},
-]
-
-PRODUCTS = [
-    {"id": "P-1", "name": "Enterprise VR Program", "price": 24800},
-    {"id": "P-2", "name": "Hybrid Session Pack (x20)", "price": 8600},
-    {"id": "P-3", "name": "Spatial Replay Add-on", "price": 3200},
-    {"id": "P-4", "name": "Internship Track", "price": 15400},
-]
+@api_router.put("/auth/notifications")
+async def update_notifications(body: NotifIn, request: Request):
+    user = await require_user(request)
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": body.model_dump()})
+    return clean_user(await db.users.find_one({"user_id": user["user_id"]}))
 
 
-async def seed():
-    if await db.sessions.count_documents({}) == 0:
-        await db.sessions.insert_many([dict(x) for x in SEED_SESSIONS])
-    if await db.groups.count_documents({}) == 0:
-        await db.groups.insert_many([dict(x) for x in SEED_GROUPS])
-    if await db.orders.count_documents({}) == 0:
-        await db.orders.insert_many([dict(x) for x in SEED_ORDERS])
-    demo = [
-        {"email": "teacher@cygnusrift.io", "name": "Elena Voss", "role": "teacher", "specialization": "Immersive Cinematography", "phone": "+1 555 0100"},
-        {"email": "student@cygnusrift.io", "name": "Liam Carter", "role": "student", "specialization": None, "phone": "+1 555 0101"},
-    ]
-    for d in demo:
-        if not await db.users.find_one({"email": d["email"]}):
-            await db.users.insert_one({
-                "user_id": f"user_{uuid.uuid4().hex[:12]}", "email": d["email"], "name": d["name"],
-                "password_hash": hash_password("password123"), "role": d["role"],
-                "specialization": d["specialization"], "phone": d["phone"], "picture": None,
-                "auth_provider": "password", "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-    await db.users.create_index("email", unique=True)
+# ---------------- Reference data ----------------
+@api_router.get("/categories")
+async def categories():
+    return CATEGORIES
 
 
-# ---------------- Dashboard ----------------
-@api_router.get("/dashboard/summary")
-async def dashboard_summary():
-    return {"analytics": ANALYTICS, "progress_series": PROGRESS_SERIES}
+@api_router.get("/content-blocks")
+async def content_blocks(type: Optional[str] = None):
+    q = {"type": type} if type else {}
+    return await db.content_blocks.find(q, {"_id": 0}).to_list(200)
 
 
-@api_router.get("/news")
-async def get_news():
-    return NEWS
-
-
-@api_router.get("/meta")
-async def meta():
-    return {"teachers": TEACHERS, "courses": COURSES, "students": STUDENTS, "products": PRODUCTS}
-
-
-# ---------------- Sessions ----------------
-@api_router.get("/sessions")
-async def get_sessions(q: Optional[str] = None, teacher: Optional[str] = None, group: Optional[str] = None, status: Optional[str] = None, date: Optional[str] = None):
-    query = {}
-    if teacher:
-        query["teacher"] = teacher
-    if group:
-        query["group"] = group
-    if status:
-        query["status"] = status
-    if date:
-        query["date"] = date
-    docs = await db.sessions.find(query, {"_id": 0}).to_list(200)
+@api_router.get("/students")
+async def get_students(q: Optional[str] = None):
+    docs = await db.students.find({}, {"_id": 0}).to_list(500)
     if q:
         ql = q.lower()
-        docs = [d for d in docs if ql in d["title"].lower()]
-    docs.sort(key=lambda d: (d["date"], d["time"]))
+        docs = [d for d in docs if ql in d["name"].lower() or ql in d.get("email", "").lower()]
+    docs.sort(key=lambda d: d["name"])
     return docs
 
 
-@api_router.get("/sessions/{sid}")
-async def get_session(sid: str):
-    doc = await db.sessions.find_one({"id": sid}, {"_id": 0})
+class StudentIn(BaseModel):
+    name: str
+    institution: str = "Independent"
+    division: str = "General"
+    email: str = ""
+    phone: str = ""
+
+
+@api_router.post("/students")
+async def add_student(body: StudentIn):
+    sid = f"U-{uuid.uuid4().hex[:6]}"
+    doc = {"id": sid, **body.model_dump()}
+    await db.students.insert_one(dict(doc))
+    return {k: v for k, v in doc.items()}
+
+
+# ---------------- Lessons ----------------
+class LessonIn(BaseModel):
+    title: str
+    description: str = ""
+    category: str
+    duration: int = 60
+    theory_ids: List[str] = []
+    practice_ids: List[str] = []
+    quizzes: List[dict] = []
+
+
+async def _expand_lesson(lesson: dict) -> dict:
+    ids = lesson.get("theory_ids", []) + lesson.get("practice_ids", [])
+    blocks = await db.content_blocks.find({"id": {"$in": ids}}, {"_id": 0}).to_list(100)
+    bmap = {b["id"]: b for b in blocks}
+    lesson["theory_blocks"] = [bmap[i] for i in lesson.get("theory_ids", []) if i in bmap]
+    lesson["practice_blocks"] = [bmap[i] for i in lesson.get("practice_ids", []) if i in bmap]
+    return lesson
+
+
+@api_router.get("/lessons")
+async def get_lessons(q: Optional[str] = None, category: Optional[str] = None):
+    query = {}
+    if category:
+        query["category"] = category
+    docs = await db.lessons.find(query, {"_id": 0}).to_list(200)
+    if q:
+        ql = q.lower()
+        docs = [d for d in docs if ql in d["title"].lower()]
+    return docs
+
+
+@api_router.get("/lessons/{lid}")
+async def get_lesson(lid: str):
+    doc = await db.lessons.find_one({"id": lid}, {"_id": 0})
     if not doc:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return doc
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return await _expand_lesson(doc)
 
 
-@api_router.delete("/sessions/{sid}")
-async def delete_session(sid: str):
-    await db.sessions.delete_one({"id": sid})
+def _validate_lesson(body: LessonIn):
+    if not body.theory_ids:
+        raise HTTPException(status_code=400, detail="At least one theory block is required")
+    if not body.practice_ids:
+        raise HTTPException(status_code=400, detail="At least one practice block is required")
+
+
+@api_router.post("/lessons")
+async def create_lesson(body: LessonIn, request: Request):
+    user = await require_user(request)
+    _validate_lesson(body)
+    lid = f"L-{uuid.uuid4().hex[:6]}"
+    doc = {"id": lid, **body.model_dump(), "teacher": user.get("name", "Instructor"), "created_at": datetime.now(timezone.utc).date().isoformat()}
+    await db.lessons.insert_one(dict(doc))
+    return await _expand_lesson(await db.lessons.find_one({"id": lid}, {"_id": 0}))
+
+
+@api_router.put("/lessons/{lid}")
+async def update_lesson(lid: str, body: LessonIn):
+    _validate_lesson(body)
+    res = await db.lessons.update_one({"id": lid}, {"$set": body.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return await _expand_lesson(await db.lessons.find_one({"id": lid}, {"_id": 0}))
+
+
+@api_router.delete("/lessons/{lid}")
+async def delete_lesson(lid: str):
+    await db.lessons.delete_one({"id": lid})
     return {"success": True}
 
 
 # ---------------- Groups ----------------
 class GroupIn(BaseModel):
     name: str
-    course: str
-    teacher: str
-    institution: str = ""
-    division: str = ""
-    limit: int = 30
+    direction: str
     student_ids: List[str] = []
 
 
 @api_router.get("/groups")
 async def get_groups():
-    return await db.groups.find({}, {"_id": 0}).to_list(200)
+    docs = await db.groups.find({}, {"_id": 0}).to_list(200)
+    for d in docs:
+        d["students"] = len(d.get("student_ids", []))
+    return docs
 
 
 @api_router.get("/groups/{gid}")
@@ -423,28 +441,28 @@ async def get_group(gid: str):
     doc = await db.groups.find_one({"id": gid}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Group not found")
-    doc["student_list"] = [s for s in STUDENTS if s["id"] in doc.get("student_ids", [])]
-    doc["sessions"] = await db.sessions.find({"group": doc["name"]}, {"_id": 0}).to_list(50)
+    doc["student_list"] = await db.students.find({"id": {"$in": doc.get("student_ids", [])}}, {"_id": 0}).to_list(200)
+    doc["students"] = len(doc.get("student_ids", []))
+    bookings = await db.bookings.find({"group_id": gid}, {"_id": 0}).to_list(100)
+    doc["bookings"] = [await _enrich_booking(b) for b in bookings]
     return doc
 
 
 @api_router.post("/groups")
-async def create_group(body: GroupIn):
+async def create_group(body: GroupIn, request: Request):
+    user = await require_user(request)
     gid = f"G-{uuid.uuid4().hex[:6]}"
-    doc = body.model_dump()
-    doc.update({"id": gid, "students": len(body.student_ids), "progress": 0, "created_at": datetime.now(timezone.utc).date().isoformat()})
+    doc = {"id": gid, **body.model_dump(), "teacher": user.get("name", "Instructor"), "created_at": datetime.now(timezone.utc).date().isoformat()}
     await db.groups.insert_one(dict(doc))
-    return await db.groups.find_one({"id": gid}, {"_id": 0})
+    return await get_group(gid)
 
 
 @api_router.put("/groups/{gid}")
 async def update_group(gid: str, body: GroupIn):
-    doc = body.model_dump()
-    doc["students"] = len(body.student_ids)
-    res = await db.groups.update_one({"id": gid}, {"$set": doc})
+    res = await db.groups.update_one({"id": gid}, {"$set": body.model_dump()})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Group not found")
-    return await db.groups.find_one({"id": gid}, {"_id": 0})
+    return await get_group(gid)
 
 
 @api_router.delete("/groups/{gid}")
@@ -453,45 +471,150 @@ async def delete_group(gid: str):
     return {"success": True}
 
 
-# ---------------- Orders ----------------
-class OrderIn(BaseModel):
-    client: str
-    product: str
-    amount: int
-    method: str = "Card"
-    promo: Optional[str] = None
-    discount: int = 0
+# ---------------- Bookings ----------------
+class BookingIn(BaseModel):
+    lesson_id: str
+    group_id: str
+    date: str
+    time: str
+    duration: Optional[int] = None
 
 
-@api_router.get("/orders")
-async def get_orders():
-    docs = await db.orders.find({}, {"_id": 0}).to_list(200)
-    docs.sort(key=lambda d: d["date"], reverse=True)
-    return docs
+class BookingEditIn(BaseModel):
+    group_id: Optional[str] = None
+    date: Optional[str] = None
+    time: Optional[str] = None
+    duration: Optional[int] = None
 
 
-@api_router.get("/orders/{oid}")
-async def get_order(oid: str):
-    doc = await db.orders.find_one({"id": oid}, {"_id": 0})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return doc
+def _booking_status(date_str: str) -> str:
+    try:
+        d = date.fromisoformat(date_str)
+    except Exception:
+        return "scheduled"
+    today = datetime.now(timezone.utc).date()
+    if d > today:
+        return "scheduled"
+    if d == today:
+        return "active"
+    return "archived"
 
 
-@api_router.post("/orders")
-async def create_order(body: OrderIn):
-    oid = f"ORD-{uuid.uuid4().hex[:6].upper()}"
-    today = datetime.now(timezone.utc).date().isoformat()
-    total = body.amount - body.discount
-    doc = {
-        "id": oid, "date": today, "client": body.client, "product": body.product,
-        "amount": total, "currency": "USD", "status": "paid", "method": body.method,
-        "payer": {"name": body.client, "email": "", "address": ""},
-        "breakdown": {"subtotal": body.amount, "discount": body.discount, "tax": 0, "total": total, "promo": body.promo},
-        "history": [{"status": "created", "date": today}, {"status": "paid", "date": today}],
-    }
-    await db.orders.insert_one(dict(doc))
-    return await db.orders.find_one({"id": oid}, {"_id": 0})
+async def _enrich_booking(b: dict) -> dict:
+    lesson = await db.lessons.find_one({"id": b["lesson_id"]}, {"_id": 0})
+    group = await db.groups.find_one({"id": b["group_id"]}, {"_id": 0})
+    b["lesson_title"] = lesson["title"] if lesson else "—"
+    b["category"] = lesson["category"] if lesson else "—"
+    b["group_name"] = group["name"] if group else "—"
+    b["participants"] = len(group.get("student_ids", [])) if group else 0
+    b["status"] = _booking_status(b.get("date", ""))
+    return b
+
+
+@api_router.get("/bookings")
+async def get_bookings():
+    docs = await db.bookings.find({}, {"_id": 0}).to_list(200)
+    out = [await _enrich_booking(b) for b in docs]
+    out.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
+    return out
+
+
+@api_router.get("/bookings/student")
+async def get_student_bookings(request: Request):
+    user = await require_user(request)
+    email = user["email"].lower()
+    student = await db.students.find_one({"email": email}, {"_id": 0})
+    my_id = student["id"] if student else None
+    docs = await db.bookings.find({}, {"_id": 0}).to_list(200)
+    out = []
+    for b in docs:
+        group = await db.groups.find_one({"id": b["group_id"]}, {"_id": 0})
+        in_group = my_id in group.get("student_ids", []) if group else False
+        joined = email in b.get("joined_emails", []) or in_group
+        eb = await _enrich_booking(b)
+        eb["joined"] = joined
+        eb["can_join"] = not joined and eb["status"] != "archived"
+        out.append(eb)
+    out.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
+    return out
+
+
+@api_router.get("/bookings/{bid}")
+async def get_booking(bid: str):
+    b = await db.bookings.find_one({"id": bid}, {"_id": 0})
+    if not b:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    b = await _enrich_booking(b)
+    lesson = await db.lessons.find_one({"id": b["lesson_id"]}, {"_id": 0})
+    b["lesson"] = await _expand_lesson(lesson) if lesson else None
+    b["group"] = await get_group(b["group_id"]) if await db.groups.find_one({"id": b["group_id"]}) else None
+    return b
+
+
+@api_router.post("/bookings")
+async def create_booking(body: BookingIn, request: Request):
+    user = await require_user(request)
+    lesson = await db.lessons.find_one({"id": body.lesson_id}, {"_id": 0})
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    bid = f"BK-{uuid.uuid4().hex[:6].upper()}"
+    doc = {"id": bid, "lesson_id": body.lesson_id, "group_id": body.group_id, "date": body.date, "time": body.time, "duration": body.duration or lesson.get("duration", 60), "teacher": lesson.get("teacher", user.get("name")), "joined_emails": [], "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.bookings.insert_one(dict(doc))
+    return await get_booking(bid)
+
+
+@api_router.put("/bookings/{bid}")
+async def update_booking(bid: str, body: BookingEditIn):
+    upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    res = await db.bookings.update_one({"id": bid}, {"$set": upd})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return await get_booking(bid)
+
+
+@api_router.delete("/bookings/{bid}")
+async def delete_booking(bid: str):
+    await db.bookings.delete_one({"id": bid})
+    return {"success": True}
+
+
+@api_router.post("/bookings/{bid}/join")
+async def join_booking(bid: str, request: Request):
+    user = await require_user(request)
+    await db.bookings.update_one({"id": bid}, {"$addToSet": {"joined_emails": user["email"].lower()}})
+    return {"success": True}
+
+
+@api_router.post("/bookings/{bid}/leave")
+async def leave_booking(bid: str, request: Request):
+    user = await require_user(request)
+    await db.bookings.update_one({"id": bid}, {"$pull": {"joined_emails": user["email"].lower()}})
+    return {"success": True}
+
+
+# ---------------- Dashboard ----------------
+NEWS = [
+    {"id": "N-1", "tag": "Release", "title": "Cygnus Rift App v0.9 pushes real-time spatial heatmaps", "date": "2026-06-19", "summary": "Overlay participant gaze and movement heatmaps on the replay timeline."},
+    {"id": "N-2", "tag": "AI", "title": "Generative narration now supports 14 languages", "date": "2026-06-14", "summary": "Adaptive theory briefings are auto-authored per cohort."},
+    {"id": "N-3", "tag": "Milestone", "title": "Prototype kick-off scheduled for July 2026", "date": "2026-06-10", "summary": "Core immersion loop and session composer enter active build."},
+]
+PROGRESS_SERIES = [{"month": "Jan", "progress": 42}, {"month": "Feb", "progress": 51}, {"month": "Mar", "progress": 58}, {"month": "Apr", "progress": 63}, {"month": "May", "progress": 69}, {"month": "Jun", "progress": 74}]
+
+
+@api_router.get("/dashboard/summary")
+async def dashboard_summary():
+    students = await db.students.count_documents({})
+    lessons = await db.lessons.count_documents({})
+    groups = await db.groups.count_documents({})
+    all_b = await db.bookings.find({}, {"_id": 0}).to_list(500)
+    conducted = sum(1 for b in all_b if _booking_status(b.get("date", "")) == "archived")
+    analytics = {"students": students, "bookings": len(all_b), "conducted": conducted, "lessons": lessons, "groups": groups}
+    return {"analytics": analytics, "progress_series": PROGRESS_SERIES}
+
+
+@api_router.get("/news")
+async def get_news():
+    return NEWS
 
 
 @api_router.get("/")
@@ -499,11 +622,101 @@ async def root():
     return {"message": "Cygnus Rift API"}
 
 
-app.include_router(api_router)
+# ---------------- Seed ----------------
+FIRST = ["Liam", "Sofia", "Noah", "Maya", "Ethan", "Chloe", "Omar", "Isla", "Lucas", "Ava", "Mateo", "Zara", "Hugo", "Nina", "Kai", "Lena", "Diego", "Amara", "Felix", "Yuki", "Aria", "Ravi", "Elena", "Marco", "Priya", "Sven", "Leila", "Oscar", "Mila", "Tariq", "Freya", "Ivan", "Sara", "Dominic", "Naomi", "Pavel", "Rosa", "Kenji", "Vera", "Andre", "Lucia", "Malik", "Ingrid", "Cyrus", "Dahlia", "Bjorn", "Anya", "Rex", "Talia", "Emil"]
+LAST = ["Carter", "Rossi", "Kim", "Singh", "Brooks", "Dubois", "Haddad", "Murphy", "Nguyen", "Silva", "Kowalski", "Okafor", "Tanaka", "Weber", "Costa", "Popov", "Reyes", "Andersson", "Bauer", "Moreau", "Ivanov", "Schmidt", "Larsen", "Novak", "Petrov", "Fisher", "Hassan", "Lindqvist", "Marino", "Ferreira"]
+INSTITUTIONS = [("Global Fund Institute", "Investment Training"), ("Nova Academy", "Internship Program"), ("Orion Consulting", "Advisory Practice"), ("Vertex Corp", "Learning & Development"), ("Helix Robotics", "Field Engineering"), ("Aurora Health", "Clinical Onboarding"), ("Meridian Defense", "Tactical Simulation"), ("Cygnus University", "Immersive Media")]
+THEORY_TITLES = ["Cinematic Framing Fundamentals", "Lumen Global Illumination", "Spatial Storytelling", "MetaHuman Behaviour Models", "Prompt Design Principles", "Crisis Communication Theory", "Ethics of Immersive Training", "Non-verbal Signal Reading"]
+PRACTICE_TITLES = ["Relight a VR Set", "MetaHuman Interview Drill", "Nanite Environment Build", "Board Pitch Roleplay", "Crisis Scenario Branching", "Spatial Replay Analysis", "Field Safety Simulation", "Consulting Decision Sim"]
 
+
+async def seed():
+    # demo auth users (idempotent restore of demo passwords)
+    demo = [
+        {"email": "teacher@cygnusrift.io", "name": "Elena Voss", "role": "teacher", "specialization": "Immersive Cinematography", "phone": "+1 555 0100", "institution": "Cygnus University"},
+        {"email": "student@cygnusrift.io", "name": "Liam Carter", "role": "student", "specialization": None, "phone": "+1 555 0101", "institution": "Nova Academy"},
+    ]
+    for d in demo:
+        await db.users.update_one(
+            {"email": d["email"]},
+            {"$setOnInsert": {"user_id": f"user_{uuid.uuid4().hex[:12]}", "auth_provider": "password", "created_at": datetime.now(timezone.utc).isoformat(), "email_notifications": True, "push_notifications": True},
+             "$set": {"name": d["name"], "role": d["role"], "specialization": d["specialization"], "phone": d["phone"], "institution": d["institution"], "password_hash": hash_password("password123")}},
+            upsert=True,
+        )
+    try:
+        await db.users.create_index("email", unique=True)
+    except Exception:
+        pass
+
+    if await db.students.count_documents({}) == 0:
+        students = []
+        rng = random.Random(42)
+        for i in range(50):
+            fn = FIRST[i % len(FIRST)]
+            ln = LAST[(i * 3) % len(LAST)]
+            inst, div = INSTITUTIONS[i % len(INSTITUTIONS)]
+            email = f"student@cygnusrift.io" if i == 0 else f"{fn.lower()}.{ln.lower()}{i}@mail.io"
+            students.append({"id": f"U-{i+1:03d}", "name": f"{fn} {ln}", "email": email, "phone": f"+1 555 {rng.randint(1000,9999)}", "institution": inst, "division": div})
+        await db.students.insert_many(students)
+
+    if await db.content_blocks.count_documents({}) == 0:
+        blocks = []
+        rng = random.Random(7)
+        for i, t in enumerate(THEORY_TITLES):
+            blocks.append({"id": f"CT-{i+1:02d}", "title": t, "type": "theory", "thumbnail": f"https://picsum.photos/seed/theory{i}/400/240", "duration": rng.choice([8, 10, 12, 15]), "category": ALL_CATEGORIES[i % len(ALL_CATEGORIES)], "created_at": f"2026-0{rng.randint(1,6)}-1{rng.randint(0,9)}"})
+        for i, t in enumerate(PRACTICE_TITLES):
+            blocks.append({"id": f"CP-{i+1:02d}", "title": t, "type": "practice", "thumbnail": f"https://picsum.photos/seed/practice{i}/400/240", "duration": rng.choice([20, 25, 30, 40]), "category": ALL_CATEGORIES[i % len(ALL_CATEGORIES)], "created_at": f"2026-0{rng.randint(1,6)}-1{rng.randint(0,9)}"})
+        await db.content_blocks.insert_many(blocks)
+
+    if await db.lessons.count_documents({}) == 0:
+        lessons = [
+            {"id": "L-001", "title": "MetaHuman Interview Simulation", "category": "MetaHuman Interaction" if False else "Psychology", "duration": 90, "theory_ids": ["CT-04", "CT-08"], "practice_ids": ["CP-02"], "quizzes": [{"id": "Q1", "question": "What signals build rapport fastest?", "options": ["Eye contact", "Silence", "Interrupting", "Note-taking"], "correct": 0, "show_after": "end"}]},
+            {"id": "L-002", "title": "Lumen Lighting Theory + Practice", "category": "Computer Science", "duration": 60, "theory_ids": ["CT-02"], "practice_ids": ["CP-01"], "quizzes": [{"id": "Q1", "question": "Lumen provides?", "options": ["Global illumination", "Physics", "Audio", "Networking"], "correct": 0, "show_after": "end"}]},
+            {"id": "L-003", "title": "Enterprise Consulting Simulation", "category": "Finance", "duration": 120, "theory_ids": ["CT-06"], "practice_ids": ["CP-04", "CP-08"], "quizzes": [{"id": "Q1", "question": "A good pitch opens with?", "options": ["The ask", "A hook", "Pricing", "Legal"], "correct": 1, "show_after": "end"}]},
+            {"id": "L-004", "title": "Crisis Response Scenario", "category": "Law Enforcement", "duration": 75, "theory_ids": ["CT-06", "CT-07"], "practice_ids": ["CP-05"], "quizzes": [{"id": "Q1", "question": "First step in a crisis?", "options": ["Assess", "Panic", "Delegate blame", "Wait"], "correct": 0, "show_after": "end"}]},
+            {"id": "L-005", "title": "Nanite Environment Walkthrough", "category": "Architecture", "duration": 75, "theory_ids": ["CT-01", "CT-03"], "practice_ids": ["CP-03"], "quizzes": [{"id": "Q1", "question": "Nanite optimizes?", "options": ["Geometry", "Sound", "AI", "Text"], "correct": 0, "show_after": "end"}]},
+            {"id": "L-006", "title": "Field Safety Simulation", "category": "Corporate Safety", "duration": 60, "theory_ids": ["CT-07"], "practice_ids": ["CP-07"], "quizzes": [{"id": "Q1", "question": "PPE stands for?", "options": ["Personal Protective Equipment", "Public Policy Exam", "Peak Performance Effort", "None"], "correct": 0, "show_after": "end"}]},
+        ]
+        for l in lessons:
+            l["teacher"] = "Elena Voss"
+            l["description"] = f"An immersive {l['category']} session blending cinematic theory with hands-on VR practice."
+            l["created_at"] = "2026-05-10"
+        await db.lessons.insert_many(lessons)
+
+    if await db.groups.count_documents({}) == 0:
+        all_students = await db.students.find({}, {"_id": 0, "id": 1}).to_list(500)
+        sids = [s["id"] for s in all_students]
+        rng = random.Random(11)
+        directions = ["Computer Science", "Medicine & Nursing", "Finance", "Law Enforcement", "Architecture", "Corporate Safety", "Psychology", "IT"]
+        groups = []
+        idx = 0
+        for i, dirn in enumerate(directions):
+            count = rng.randint(4, 7)
+            members = sids[idx:idx + count]
+            idx = (idx + count) % max(1, len(sids) - 7)
+            if "U-001" not in members and i < 3:
+                members = ["U-001"] + members
+            groups.append({"id": f"G-{i+1:02d}", "name": f"{dirn.split()[0]} Cohort {chr(65+i)}", "direction": dirn, "teacher": "Elena Voss", "created_at": f"2026-0{(i%6)+1}-1{i%9}", "student_ids": members})
+        await db.groups.insert_many(groups)
+
+    if await db.bookings.count_documents({}) == 0:
+        lessons = await db.lessons.find({}, {"_id": 0, "id": 1, "duration": 1}).to_list(50)
+        groups = await db.groups.find({}, {"_id": 0, "id": 1}).to_list(50)
+        rng = random.Random(21)
+        today = datetime.now(timezone.utc).date()
+        bookings = []
+        offsets = [-6, -3, -1, 0, 1, 2, 4, 7, 10, 14]
+        for i in range(9):
+            l = lessons[i % len(lessons)]
+            g = groups[i % len(groups)]
+            d = today + timedelta(days=offsets[i])
+            bookings.append({"id": f"BK-{i+1:04d}", "lesson_id": l["id"], "group_id": g["id"], "date": d.isoformat(), "time": rng.choice(["09:30", "11:00", "13:00", "15:30", "17:00"]), "duration": l.get("duration", 60), "teacher": "Elena Voss", "joined_emails": [], "created_at": datetime.now(timezone.utc).isoformat()})
+        await db.bookings.insert_many(bookings)
+
+
+app.include_router(api_router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','), allow_methods=["*"], allow_headers=["*"])
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 @app.on_event("startup")
