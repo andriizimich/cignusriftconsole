@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Search, Check, X, HelpCircle, Plus } from "lucide-react";
+import { ArrowLeft, Check, X, HelpCircle, Plus, LibraryBig } from "lucide-react";
 import { api } from "@/lib/api";
 import { blockDuration } from "@/components/ContentBlockCard";
+import { LibraryPickerModal } from "@/components/LibraryPickerModal";
 import { formatApiError } from "@/context/AuthContext";
 
 const inp = "w-full rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#0066FF]/50";
@@ -17,15 +18,10 @@ export default function LessonForm() {
   const [cats, setCats] = useState({});
   const [f, setF] = useState({ title: "", description: "", category: "", duration: 60 });
   const [selected, setSelected] = useState({ theory: [], practice: [] });
-  const [quizzes, setQuizzes] = useState({}); // block_id -> {question, options, correct}
-  const [q, setQ] = useState({ theory: "", practice: "" });
-  const [results, setResults] = useState({ theory: [], practice: [] });
+  const [quizzes, setQuizzes] = useState({});
+  const [modal, setModal] = useState(null); // 'theory' | 'practice' | null
 
   useEffect(() => { api.get("/categories").then((r) => setCats(r.data)); }, []);
-
-  const search = (type, term) => api.get("/content-blocks", { params: { type, q: term, limit: 9 } }).then((r) => setResults((s) => ({ ...s, [type]: r.data.items })));
-  useEffect(() => { search("theory", q.theory); }, [q.theory]);
-  useEffect(() => { search("practice", q.practice); }, [q.practice]);
 
   useEffect(() => {
     if (!editing) return;
@@ -39,8 +35,10 @@ export default function LessonForm() {
     });
   }, [id, editing]);
 
-  const isSel = (type, bid) => selected[type].some((b) => b.id === bid);
-  const toggle = (type, block) => setSelected((s) => ({ ...s, [type]: isSel(type, block.id) ? s[type].filter((b) => b.id !== block.id) : [...s[type], block] }));
+  const onConfirm = (type) => (blocks) => {
+    setSelected((s) => ({ ...s, [type]: blocks }));
+    setQuizzes((m) => { const ids = new Set(blocks.map((b) => b.id)); const n = {}; Object.entries(m).forEach(([bid, q]) => { if (ids.has(bid) || selected[type === "theory" ? "practice" : "theory"].some((b) => b.id === bid)) n[bid] = q; }); return n; });
+  };
   const removeBlock = (type, bid) => { setSelected((s) => ({ ...s, [type]: s[type].filter((b) => b.id !== bid) })); setQuizzes((m) => { const n = { ...m }; delete n[bid]; return n; }); };
   const addQuiz = (bid) => setQuizzes((m) => ({ ...m, [bid]: { ...emptyQuiz } }));
   const updateQuiz = (bid, patch) => setQuizzes((m) => ({ ...m, [bid]: { ...m[bid], ...patch } }));
@@ -49,12 +47,7 @@ export default function LessonForm() {
   const submit = async () => {
     if (!f.title || !f.category) { toast.error("Title and category are required"); return; }
     if (selected.theory.length === 0 || selected.practice.length === 0) { toast.error("Select at least one theory and one practice block"); return; }
-    const payload = {
-      ...f,
-      theory_ids: selected.theory.map((b) => b.id),
-      practice_ids: selected.practice.map((b) => b.id),
-      quizzes: Object.entries(quizzes).map(([block_id, qz], i) => ({ id: `Q${i + 1}`, block_id, ...qz })),
-    };
+    const payload = { ...f, theory_ids: selected.theory.map((b) => b.id), practice_ids: selected.practice.map((b) => b.id), quizzes: Object.entries(quizzes).map(([block_id, qz], i) => ({ id: `Q${i + 1}`, block_id, ...qz })) };
     try {
       if (editing) { await api.put(`/lessons/${id}`, payload); toast.success("Lesson updated"); navigate(`/dashboard/lessons/${id}`); }
       else { const r = await api.post("/lessons", payload); toast.success("Lesson created"); navigate(`/dashboard/lessons/${r.data.id}`); }
@@ -66,11 +59,11 @@ export default function LessonForm() {
     if (!qz) return <button type="button" data-testid={`add-quiz-${bid}`} onClick={() => addQuiz(bid)} className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"><Plus className="h-3.5 w-3.5" /> Attach quiz</button>;
     return (
       <div className="mt-3 rounded-md border border-[#0066FF]/25 bg-[#0066FF]/5 p-3">
-        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4 text-[#0066FF]" /><input className={inp} value={qz.question} onChange={(e) => updateQuiz(bid, { question: e.target.value })} placeholder="Quiz question" /><button onClick={() => removeQuiz(bid)} className="rounded-md p-2 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
+        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4 text-[#0066FF]" /><input data-testid={`quiz-question-${bid}`} className={inp} value={qz.question} onChange={(e) => updateQuiz(bid, { question: e.target.value })} placeholder="Quiz question" /><button data-testid={`quiz-remove-${bid}`} onClick={() => removeQuiz(bid)} className="rounded-md p-2 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {qz.options.map((o, oi) => (
             <div key={oi} className="flex items-center gap-2">
-              <button type="button" title="Mark correct" onClick={() => updateQuiz(bid, { correct: oi })} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${qz.correct === oi ? "border-[#00FF66] bg-[#00FF66]" : "border-white/20"}`}>{qz.correct === oi && <Check className="h-3 w-3 text-black" />}</button>
+              <button type="button" data-testid={`quiz-correct-${bid}-${oi}`} title="Mark correct" onClick={() => updateQuiz(bid, { correct: oi })} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${qz.correct === oi ? "border-[#00FF66] bg-[#00FF66]" : "border-white/20"}`}>{qz.correct === oi && <Check className="h-3 w-3 text-black" />}</button>
               <input className={inp} value={o} onChange={(e) => updateQuiz(bid, { options: qz.options.map((x, xi) => (xi === oi ? e.target.value : x)) })} placeholder={`Option ${oi + 1}`} />
             </div>
           ))}
@@ -79,26 +72,19 @@ export default function LessonForm() {
     );
   };
 
-  const Picker = ({ type, accent }) => (
+  const Section = ({ type, accent }) => (
     <div>
-      <div className="relative mb-3"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" /><input data-testid={`search-${type}`} className={`${inp} pl-9`} value={q[type]} onChange={(e) => setQ((s) => ({ ...s, [type]: e.target.value }))} placeholder={`Search ${type} library...`} /></div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {results[type].map((b) => {
-          const sel = isSel(type, b.id);
-          return (
-            <button key={b.id} type="button" data-testid={`pick-${type}-${b.id}`} onClick={() => toggle(type, b)} className={`relative overflow-hidden rounded-md border text-left transition-colors ${sel ? "border-[#0066FF]" : "border-white/[0.07] hover:border-white/20"}`}>
-              <div className="relative aspect-video"><img src={b.thumbnail} alt={b.title} loading="lazy" className="h-full w-full object-cover" /><div className="absolute inset-0 bg-black/40" />{sel && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0066FF]"><Check className="h-3 w-3 text-white" /></span>}</div>
-              <div className="p-2"><p className="truncate text-[11px] text-white">{b.title}</p><p className="text-[10px] text-zinc-500">{blockDuration(b)}</p></div>
-            </button>
-          );
-        })}
+      <div className="mb-3 flex items-center justify-between">
+        <p className={lbl + " mb-0"}>{type === "theory" ? "Theory" : "Practice"} Blocks * <span className="text-zinc-600">({selected[type].length})</span></p>
+        <button type="button" data-testid={`browse-${type}`} onClick={() => setModal(type)} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors" style={{ borderColor: `${accent}55`, color: accent }}><LibraryBig className="h-3.5 w-3.5" /> Browse Library</button>
       </div>
-      {selected[type].length > 0 && (
-        <div className="mt-4 space-y-3">
-          <p className={lbl}>Selected {type} ({selected[type].length}) · attach a quiz to each</p>
+      {selected[type].length === 0 ? (
+        <button type="button" onClick={() => setModal(type)} className="flex w-full items-center justify-center rounded-lg border border-dashed border-white/15 py-8 text-sm text-zinc-500 hover:border-[#0066FF]/40 hover:text-white">Open library to add {type} blocks</button>
+      ) : (
+        <div className="space-y-3">
           {selected[type].map((b) => (
             <div key={b.id} data-testid={`selected-${type}-${b.id}`} className="rounded-lg border border-white/[0.07] bg-black/30 p-3">
-              <div className="flex items-center gap-3"><img src={b.thumbnail} alt="" className="h-10 w-16 rounded object-cover" /><div className="flex-1"><p className="text-sm text-white">{b.title}</p><p className="text-[11px] text-zinc-500">{blockDuration(b)} · {b.category}</p></div><button onClick={() => removeBlock(type, b.id)} className="rounded-md p-1.5 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
+              <div className="flex items-center gap-3"><img src={b.thumbnail} alt="" className="h-10 w-16 rounded object-cover" /><div className="flex-1"><p className="text-sm text-white">{b.title}</p><p className="text-[11px] text-zinc-500">{blockDuration(b)} · {b.category}</p></div><button data-testid={`remove-${type}-${b.id}`} onClick={() => removeBlock(type, b.id)} className="rounded-md p-1.5 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
               <QuizEditor bid={b.id} />
             </div>
           ))}
@@ -119,14 +105,16 @@ export default function LessonForm() {
           <div><label className={lbl}>Category *</label><select data-testid="lesson-category-select" className={inp} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}><option value="">Select category</option>{Object.entries(cats).map(([g, items]) => <optgroup key={g} label={g}>{items.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}</select></div>
           <div><label className={lbl}>Duration (min)</label><input data-testid="lesson-duration-input" type="number" className={inp} value={f.duration} onChange={(e) => setF({ ...f, duration: Number(e.target.value) })} /></div>
         </div>
-        <div className="border-t border-white/[0.06] pt-6"><p className={lbl}>Theory Blocks * (from library)</p><Picker type="theory" /></div>
-        <div className="border-t border-white/[0.06] pt-6"><p className={lbl}>Practice Blocks * (from library)</p><Picker type="practice" /></div>
-
+        <div className="border-t border-white/[0.06] pt-6"><Section type="theory" accent="#0066FF" /></div>
+        <div className="border-t border-white/[0.06] pt-6"><Section type="practice" accent="#00FF66" /></div>
         <div className="flex gap-3 border-t border-white/[0.06] pt-4">
           <button data-testid="lesson-submit-btn" onClick={submit} className="rounded-md bg-[#0066FF] px-5 py-2.5 text-sm font-medium text-white transition-transform active:scale-95 hover:bg-[#0066FF]/90">{editing ? "Save Changes" : "Create Session"}</button>
           <button onClick={() => navigate("/dashboard/lessons")} className="rounded-md border border-white/15 px-5 py-2.5 text-sm text-zinc-300 hover:text-white">Cancel</button>
         </div>
       </div>
+
+      <LibraryPickerModal open={modal === "theory"} type="theory" initialBlocks={selected.theory} onClose={() => setModal(null)} onConfirm={onConfirm("theory")} />
+      <LibraryPickerModal open={modal === "practice"} type="practice" initialBlocks={selected.practice} onClose={() => setModal(null)} onConfirm={onConfirm("practice")} />
     </div>
   );
 }
