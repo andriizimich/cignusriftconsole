@@ -1,8 +1,9 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { LayoutGrid, GraduationCap, Users, CalendarCheck, User, LogOut, Menu, X, IdCard, ShieldCheck, Bell, Plus } from "lucide-react";
+import { LayoutGrid, GraduationCap, Users, CalendarCheck, User, LogOut, Menu, X, IdCard, ShieldCheck, Bell, Plus, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 
 const TEACHER_NAV = [
   { to: "/dashboard", label: "Summary", icon: LayoutGrid, testid: "nav-summary-link", end: true },
@@ -27,6 +28,7 @@ const SUBMENUS = { "/dashboard/profile": PROFILE_SUB, "/dashboard/lessons": SESS
 
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -80,6 +82,7 @@ export default function DashboardLayout({ children }) {
           <p className="truncate text-sm text-white" data-testid="sidebar-user-name">{user?.name}</p>
           <p className="truncate text-[11px] uppercase tracking-wider text-[#0066FF]">{user?.role}</p>
         </div>
+        <button data-testid="theme-toggle" onClick={toggle} className="rounded-md p-2 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-white" title="Toggle theme">{theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}</button>
         <button data-testid="logout-button" onClick={handleLogout} className="rounded-md p-2 text-zinc-500 transition-colors hover:bg-[#FF3366]/10 hover:text-[#FF3366]" title="Log out"><LogOut className="h-4 w-4" /></button>
       </div>
     </div>
@@ -98,7 +101,10 @@ export default function DashboardLayout({ children }) {
 
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-white/[0.06] bg-[#0A0A0B]/90 px-4 py-3 backdrop-blur-xl lg:hidden">
         <Logo compact />
-        <button data-testid="mobile-menu-button" onClick={() => setOpen(true)} className="rounded-md p-2 text-zinc-400 hover:bg-white/5"><Menu className="h-5 w-5" /></button>
+        <div className="flex items-center gap-1">
+          <button data-testid="theme-toggle-mobile" onClick={toggle} className="rounded-md p-2 text-zinc-400 hover:bg-white/5" title="Toggle theme">{theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}</button>
+          <button data-testid="mobile-menu-button" onClick={() => setOpen(true)} className="rounded-md p-2 text-zinc-400 hover:bg-white/5"><Menu className="h-5 w-5" /></button>
+        </div>
       </div>
 
       {open && (

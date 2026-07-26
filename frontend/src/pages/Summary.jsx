@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { GraduationCap, CalendarCheck, MonitorPlay, Users, Clock, ArrowUpRight, Radio } from "lucide-react";
+import { GraduationCap, CalendarCheck, MonitorPlay, Users, Clock, Radio } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader, Widget } from "@/components/Widget";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
-import { fmtDate, fmtDateShort } from "@/lib/format";
+import { fmtDateShort } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Summary() {
@@ -24,7 +24,6 @@ export default function Summary() {
 
   const a = data?.analytics;
   const upcoming = bookings.filter((b) => b.status !== "archived").slice(0, 4);
-  const recent = bookings.slice(0, 5);
 
   return (
     <div>
@@ -67,28 +66,6 @@ export default function Summary() {
               </motion.div>
             ))}
             {upcoming.length === 0 && <p className="px-6 py-6 text-sm text-zinc-500">No upcoming bookings.</p>}
-          </div>
-        </Widget>
-      </div>
-
-      <div className="mt-6">
-        <Widget testid="bookings-preview-widget" title="Recent Bookings" action={<Link to="/dashboard/bookings" className="inline-flex items-center gap-1 text-xs text-[#0066FF] hover:underline">All bookings <ArrowUpRight className="h-3 w-3" /></Link>}>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead><tr className="text-left text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-                {["Booking ID", "Date", "Lesson", "Group (participants)"].map((h) => <th key={h} className="border-b border-white/[0.06] px-6 py-3 font-medium">{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {recent.map((b) => (
-                  <tr key={b.id} className="transition-colors hover:bg-white/[0.03]">
-                    <td className="border-b border-white/[0.05] px-6 py-4 font-mono-plex text-[#0066FF]">{b.id}</td>
-                    <td className="border-b border-white/[0.05] px-6 py-4 text-zinc-400">{fmtDate(b.date)} · {b.time}</td>
-                    <td className="border-b border-white/[0.05] px-6 py-4 text-white">{b.lesson_title}</td>
-                    <td className="border-b border-white/[0.05] px-6 py-4 text-zinc-400">{b.group_name} <span className="text-zinc-600">({b.participants})</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </Widget>
       </div>

@@ -9,7 +9,7 @@ import { formatApiError } from "@/context/AuthContext";
 
 const inp = "w-full rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#0066FF]/50";
 const lbl = "mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-zinc-500";
-const emptyQuiz = { question: "", options: ["", "", "", ""], correct: 0 };
+const newQuiz = () => ({ question: "", options: ["", "", "", ""], correct: 0 });
 
 export default function LessonForm() {
   const { id } = useParams();
@@ -18,7 +18,7 @@ export default function LessonForm() {
   const [cats, setCats] = useState({});
   const [f, setF] = useState({ title: "", description: "", category: "", duration: 40 });
   const [selected, setSelected] = useState({ theory: [], practice: [] });
-  const [quizzes, setQuizzes] = useState({});
+  const [sectionQuiz, setSectionQuiz] = useState({ theory: null, practice: null });
   const [modal, setModal] = useState(null); // 'theory' | 'practice' | null
   const [quickQ, setQuickQ] = useState({ theory: "", practice: "" });
   const [quickRes, setQuickRes] = useState({ theory: [], practice: [] });
@@ -35,42 +35,43 @@ export default function LessonForm() {
       const l = r.data;
       setF({ title: l.title, description: l.description, category: l.category, duration: l.duration });
       setSelected({ theory: l.theory_blocks || [], practice: l.practice_blocks || [] });
-      const qm = {};
-      (l.quizzes || []).forEach((qz) => { qm[qz.block_id] = { question: qz.question, options: qz.options, correct: qz.correct }; });
-      setQuizzes(qm);
+      const pick = (bid) => { const q = (l.quizzes || []).find((qz) => qz.block_id === bid); return q ? { question: q.question, options: q.options, correct: q.correct } : null; };
+      setSectionQuiz({ theory: pick("theory"), practice: pick("practice") });
     });
   }, [id, editing]);
 
-  const onConfirm = (type) => (blocks) => {
-    setSelected((s) => ({ ...s, [type]: blocks }));
-    setQuizzes((m) => { const ids = new Set(blocks.map((b) => b.id)); const n = {}; Object.entries(m).forEach(([bid, q]) => { if (ids.has(bid) || selected[type === "theory" ? "practice" : "theory"].some((b) => b.id === bid)) n[bid] = q; }); return n; });
-  };
-  const removeBlock = (type, bid) => { setSelected((s) => ({ ...s, [type]: s[type].filter((b) => b.id !== bid) })); setQuizzes((m) => { const n = { ...m }; delete n[bid]; return n; }); };
-  const addQuiz = (bid) => setQuizzes((m) => ({ ...m, [bid]: { ...emptyQuiz } }));
-  const updateQuiz = (bid, patch) => setQuizzes((m) => ({ ...m, [bid]: { ...m[bid], ...patch } }));
-  const removeQuiz = (bid) => setQuizzes((m) => { const n = { ...m }; delete n[bid]; return n; });
+  const onConfirm = (type) => (blocks) => setSelected((s) => ({ ...s, [type]: blocks }));
+  const removeBlock = (type, bid) => setSelected((s) => ({ ...s, [type]: s[type].filter((b) => b.id !== bid) }));
+  const addQuiz = (type) => setSectionQuiz((m) => ({ ...m, [type]: newQuiz() }));
+  const updateQuiz = (type, patch) => setSectionQuiz((m) => ({ ...m, [type]: { ...m[type], ...patch } }));
+  const removeQuiz = (type) => setSectionQuiz((m) => ({ ...m, [type]: null }));
 
   const submit = async () => {
     if (!f.title || !f.category) { toast.error("Title and category are required"); return; }
     if (selected.theory.length === 0 || selected.practice.length === 0) { toast.error("Select at least one theory and one practice block"); return; }
-    const payload = { ...f, theory_ids: selected.theory.map((b) => b.id), practice_ids: selected.practice.map((b) => b.id), quizzes: Object.entries(quizzes).map(([block_id, qz], i) => ({ id: `Q${i + 1}`, block_id, ...qz })) };
+    const quizzes = [];
+    ["theory", "practice"].forEach((type, i) => {
+      const q = sectionQuiz[type];
+      if (q && q.question.trim()) quizzes.push({ id: `Q${i + 1}`, block_id: type, question: q.question, options: q.options, correct: q.correct });
+    });
+    const payload = { ...f, theory_ids: selected.theory.map((b) => b.id), practice_ids: selected.practice.map((b) => b.id), quizzes };
     try {
       if (editing) { await api.put(`/lessons/${id}`, payload); toast.success("Lesson updated"); navigate(`/dashboard/lessons/${id}`); }
       else { const r = await api.post("/lessons", payload); toast.success("Lesson created"); navigate(`/dashboard/lessons/${r.data.id}`); }
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
   };
 
-  const QuizEditor = ({ bid }) => {
-    const qz = quizzes[bid];
-    if (!qz) return <button type="button" data-testid={`add-quiz-${bid}`} onClick={() => addQuiz(bid)} className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"><Plus className="h-3.5 w-3.5" /> Attach quiz</button>;
+  const QuizEditor = ({ type, accent }) => {
+    const qz = sectionQuiz[type];
+    if (!qz) return <button type="button" data-testid={`add-quiz-${type}`} onClick={() => addQuiz(type)} className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"><Plus className="h-3.5 w-3.5" /> Attach {type} quiz</button>;
     return (
-      <div className="mt-3 rounded-md border border-[#0066FF]/25 bg-[#0066FF]/5 p-3">
-        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4 text-[#0066FF]" /><input data-testid={`quiz-question-${bid}`} className={inp} value={qz.question} onChange={(e) => updateQuiz(bid, { question: e.target.value })} placeholder="Quiz question" /><button data-testid={`quiz-remove-${bid}`} onClick={() => removeQuiz(bid)} className="rounded-md p-2 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
+      <div className="mt-4 rounded-md border p-3" style={{ borderColor: `${accent}40`, background: `${accent}0D` }}>
+        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4" style={{ color: accent }} /><input data-testid={`quiz-question-${type}`} className={inp} value={qz.question} onChange={(e) => updateQuiz(type, { question: e.target.value })} placeholder={`${type === "theory" ? "Theory" : "Practice"} quiz question`} /><button data-testid={`quiz-remove-${type}`} onClick={() => removeQuiz(type)} className="rounded-md p-2 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {qz.options.map((o, oi) => (
             <div key={oi} className="flex items-center gap-2">
-              <button type="button" data-testid={`quiz-correct-${bid}-${oi}`} title="Mark correct" onClick={() => updateQuiz(bid, { correct: oi })} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${qz.correct === oi ? "border-[#00FF66] bg-[#00FF66]" : "border-white/20"}`}>{qz.correct === oi && <Check className="h-3 w-3 text-black" />}</button>
-              <input className={inp} value={o} onChange={(e) => updateQuiz(bid, { options: qz.options.map((x, xi) => (xi === oi ? e.target.value : x)) })} placeholder={`Option ${oi + 1}`} />
+              <button type="button" data-testid={`quiz-correct-${type}-${oi}`} title="Mark correct" onClick={() => updateQuiz(type, { correct: oi })} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${qz.correct === oi ? "border-[#00FF66] bg-[#00FF66]" : "border-white/20"}`}>{qz.correct === oi && <Check className="h-3 w-3 text-black" />}</button>
+              <input className={inp} value={o} onChange={(e) => updateQuiz(type, { options: qz.options.map((x, xi) => (xi === oi ? e.target.value : x)) })} placeholder={`Option ${oi + 1}`} />
             </div>
           ))}
         </div>
@@ -103,11 +104,12 @@ export default function LessonForm() {
           {selected[type].map((b) => (
             <div key={b.id} data-testid={`selected-${type}-${b.id}`} className="rounded-lg border border-white/[0.07] bg-black/30 p-3">
               <div className="flex items-center gap-3"><img src={b.thumbnail} alt="" className="h-10 w-16 rounded object-cover" /><div className="flex-1"><p className="text-sm text-white">{b.title}</p><p className="text-[11px] text-zinc-500">{blockDuration(b)} · {b.category}</p></div><button data-testid={`remove-${type}-${b.id}`} onClick={() => removeBlock(type, b.id)} className="rounded-md p-1.5 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
-              <QuizEditor bid={b.id} />
             </div>
           ))}
         </div>
       )}
+      <p className="mt-5 text-[10px] uppercase tracking-[0.2em] text-zinc-600">{type === "theory" ? "Theory" : "Practice"} Quiz <span className="normal-case tracking-normal">(optional · one per section)</span></p>
+      <QuizEditor type={type} accent={accent} />
     </div>
   );
 
