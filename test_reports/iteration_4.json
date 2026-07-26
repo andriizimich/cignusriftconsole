@@ -1,0 +1,60 @@
+{
+  "summary": "Completed frontend-only Vite migration regression through the public URL. Build passed. Teacher login/dashboard, all teacher routes, Sessions filters/views/detail and full lesson create/delete, Groups CRUD/tabs, Bookings CRUD/sort/actions/detail, Profile routes/avatar/save/notifications, password reset, student RBAC and Join/Leave, desktop/mobile theme toggles, Google affordance, and guest flow after auth initialization passed. Found two reproducible async initialization races.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Guest login / AuthProvider",
+        "issue": "Clicking Explore as guest immediately after Login renders can navigate briefly to /dashboard and then return to /login. Waiting for the initial /auth/me request to settle makes guest login pass.",
+        "selector": "[data-testid=guest-login-button]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "GroupForm edit",
+        "issue": "Typing into Group Name immediately when Edit Group renders can be overwritten by the late GET /groups/{id} hydration; submit then persists the old name. Waiting for hydration before editing makes update pass.",
+        "selector": "[data-testid=group-name-input]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Command Summary",
+        "issues": [
+          "Recharts logs width(-1)/height(-1) warnings twice during initial render, although the chart subsequently renders."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_4.json"
+  ],
+  "action_items": [
+    "Prevent stale checkAuth completion from clearing a guest user selected while /auth/me is in flight; cancel/ignore the request or serialize guest selection with auth initialization.",
+    "Add an explicit loading state to GroupForm edit and do not enable inputs until the existing group fetch has hydrated, or protect dirty fields from late hydration.",
+    "Add a minimum dimension/style guard around the Recharts ResponsiveContainer to remove initial negative-size warnings.",
+    "Consider route-level code splitting; the Vite production build emits an 859.96 kB JS chunk and warns it exceeds 500 kB."
+  ],
+  "critical_code_review_comments": [
+    "AuthContext.checkAuth unconditionally calls setUser(null) after a failed initial /auth/me, so its stale promise can overwrite loginAsGuest's synchronous setUser(GUEST).",
+    "GroupForm starts interactive with empty state while its edit GET is pending; the response unconditionally calls setForm and can discard user input.",
+    "List pages and several mutations still use promise chains without catch/error states, causing API failures to appear as empty content or unhandled rejections.",
+    "The production document title and description remain generic Emergent branding rather than Cygnus Rift.",
+    "Several controls still lack data-testid, including modal close/cancel, form cancel/back controls, quiz option inputs, and table-view lesson action items."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_4.json"
+  ],
+  "success_rate": {
+    "backend": "Skipped per request",
+    "frontend": "94% (all requested flows passed except immediate guest activation and immediate Group edit input races)"
+  },
+  "seed_data_creation": "Created and deleted temporary TEST lesson, group, and booking records. Teacher password was temporarily changed by the full reset flow and restored to password123. Student booking membership and notification toggles were restored.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Retest immediate guest click with localStorage cleared and no wait after Login render; it currently returns to /login while localStorage guest remains true. Retest Group edit by typing immediately after the Edit Group heading appears; late GET hydration currently restores the old name. All other listed frontend migration flows passed. Use button[data-testid^=booking-lesson-] and button[data-testid^=join-booking-] to avoid matching container testids, and wait for actual rows before Join/Leave. Theme and credentials are restored.",
+  "rca_of_the_issue": "Guest race: AuthProvider starts checkAuth on mount; loginAsGuest sets GUEST, but the already in-flight unauthenticated /auth/me later catches and calls setUser(null), causing ProtectedLayout to redirect to /login. Group edit race: GroupForm renders enabled empty controls before GET /groups/{id} resolves, then setForm from the response overwrites edits made during that interval. The Vite migration itself builds successfully and the fetch client/nested routes passed the remaining regression coverage."
+}
