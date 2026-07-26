@@ -16,12 +16,13 @@ export default function GroupForm() {
   const [form, setForm] = useState({ name: "", direction: "", student_ids: [] });
   const [showAdd, setShowAdd] = useState(false);
   const [newStu, setNewStu] = useState({ name: "", institution: "", division: "", email: "", phone: "" });
+  const [hydrated, setHydrated] = useState(!id);
 
   const loadStudents = () => api.get("/students").then((r) => setStudents(r.data));
   useEffect(() => {
     api.get("/categories").then((r) => setCats(r.data));
     loadStudents();
-    if (editing) api.get(`/groups/${id}`).then((r) => { const g = r.data; setForm({ name: g.name, direction: g.direction, student_ids: g.student_ids || [] }); });
+    if (editing) api.get(`/groups/${id}`).then((r) => { const g = r.data; setForm({ name: g.name, direction: g.direction, student_ids: g.student_ids || [] }); setHydrated(true); });
   }, [id, editing]);
 
   const toggle = (sid) => setForm((p) => ({ ...p, student_ids: p.student_ids.includes(sid) ? p.student_ids.filter((x) => x !== sid) : [...p.student_ids, sid] }));
@@ -51,8 +52,8 @@ export default function GroupForm() {
 
       <div className="cr-panel space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
-          <div><label className="cr-label">Group Name *</label><input data-testid="group-name-input" className="cr-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. CS Cohort A" /></div>
-          <div><label className="cr-label">Direction *</label><select data-testid="group-direction-select" className="cr-input" value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}><option value="">Select direction</option>{Object.entries(cats).map(([grp, items]) => <optgroup key={grp} label={grp}>{items.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}</select></div>
+          <div><label className="cr-label">Group Name *</label><input data-testid="group-name-input" disabled={!hydrated} className="cr-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. CS Cohort A" /></div>
+          <div><label className="cr-label">Direction *</label><select data-testid="group-direction-select" disabled={!hydrated} className="cr-input" value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}><option value="">Select direction</option>{Object.entries(cats).map(([grp, items]) => <optgroup key={grp} label={grp}>{items.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}</select></div>
         </div>
 
         <div>
@@ -88,7 +89,7 @@ export default function GroupForm() {
         </div>
 
         <div className="cr-divider-top flex gap-3">
-          <Button variant="bare" data-testid="group-submit-btn" onClick={submit} className="cr-btn-primary">{editing ? "Save Changes" : "Create Group"}</Button>
+          <Button variant="bare" data-testid="group-submit-btn" disabled={!hydrated} onClick={submit} className="cr-btn-primary">{editing ? "Save Changes" : "Create Group"}</Button>
           <Button variant="bare" onClick={() => navigate("/dashboard/groups")} className="cr-btn-ghost">Cancel</Button>
         </div>
       </div>

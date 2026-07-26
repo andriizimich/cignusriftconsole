@@ -41,3 +41,19 @@ Build an English-language futuristic user dashboard for the "Cygnus Rift" brand 
 - P1: CORS wildcard with credentials; no login brute-force lockout (AUTH — route via integration_expert).
 - P1: create_booking accepts unknown group_id; archived bookings joinable via API.
 - Note: correct student credential is student@cygnusrift.io / password123 (not student_1).
+
+---
+## Changelog — 2026-06 (session: 4-phase frontend architectural refactor) — DONE & VERIFIED
+Full frontend overhaul requested by user; executed in 4 phases, all completed and verified.
+- **Phase A**: switched dates to `date-fns` (centralized in `lib/format.js`); removed `dayjs`, `swr`, `framer-motion`, custom `useToast`; CSS transitions replace framer animations.
+- **Phase B**: created base components in `components/base/` — `Button` (forwardRef; `variant='bare'` passthrough that preserves existing `cr-*` classes), `Heading` (`bare` prop), `Img`, `TextLink`. ALL native `<button>`→`<Button>`, `<img>`→`<Img>`, `<h1>/<h2>`→`<Heading>` across every page/component. `RowActions` (shadcn dropdown) for table/card menus. CSS Modules + PropTypes for `ContentBlockCard`, `Widget`, `Logo`, `StatusBadge`, `DashboardLayout`, `RowActions`. NOTE: `@apply` cannot use plain CSS classes (`animate-pulse-glow`, `font-display`) inside `.module.css` — use direct `animation:`/`font-family:` instead.
+- **Phase C**: React Router migrated to NESTED routers (`App.jsx`: `ProtectedLayout` + `TeacherGuard` + `RoleHome`; `DashboardLayout` renders `<Outlet/>`). Inline Google SVG → `react-icons` `FcGoogle`. Minimized absolute positioning / element ids (remaining ones are justified overlays + one SVG gradient id).
+- **Phase D (build tooling)**: migrated CRA/craco → **Vite 8** (`vite.config.js`), yarn → **pnpm 9** (`packageManager` field, `.npmrc` node-linker=hoisted), added **React Compiler** (`@vitejs/plugin-react` v6 + `@rolldown/plugin-babel` + `babel-plugin-react-compiler`, wired as `react()` then `babel({presets:[reactCompilerPreset()]})` — confirmed active in dev AND prod build). `index.html` moved to project root (preserves posthog/emergent-main/theme-init scripts + `<script type=module src=/src/main.jsx>`). Entry renamed `index.js→main.jsx`, `App.js→App.jsx`. `axios` → native **fetch** client in `lib/api.js` (same `api.get/post/put/delete`→`{data}` interface, errors carry `e.response.data.detail`; uses `import.meta.env.REACT_APP_BACKEND_URL`). Supervisor frontend command changed `yarn start`→`pnpm start`. `envPrefix` includes `REACT_APP_`.
+- **react-hook-form → @tanstack/form**: MOOT / not done — `react-hook-form` is only referenced by the unused shadcn `components/ui/form.jsx`; no app form uses it. Documented, nothing to migrate.
+- Bug fixes (from iteration_4): guest-login race (stale `/auth/me` no longer clobbers guest); GroupForm edit inputs disabled until group fetch hydrates.
+- Verified: iteration_4 frontend 94% (all requested flows passed); production `pnpm build` succeeds.
+
+## Frontend backlog (post-refactor)
+- P2: route-level code splitting (Vite warns prod JS chunk >500 kB / ~860 kB).
+- P2: move `formatApiError` out of `AuthContext.jsx` to restore React Fast Refresh (dev-only HMR warning).
+- P3: replace picsum.photos ContentBlock thumbnails with stable image host (some cards show black on external load failure).

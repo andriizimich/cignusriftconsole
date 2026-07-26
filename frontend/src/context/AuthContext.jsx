@@ -26,8 +26,10 @@ export const AuthProvider = ({ children }) => {
     }
     try {
       const res = await api.get("/auth/me");
+      if (localStorage.getItem("guest") === "true") return;
       setUser(res.data);
     } catch {
+      if (localStorage.getItem("guest") === "true") return;
       setUser(null);
     } finally {
       setLoading(false);
