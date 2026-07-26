@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { Plus, Search, LayoutGrid, Table2, Pencil, Trash2, UserRound, Clock, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/Widget";
+import { Button } from "@/components/base/Button";
+import { RowActions } from "@/components/RowActions";
 
 export default function Lessons() {
   const navigate = useNavigate();
@@ -29,12 +31,12 @@ export default function Lessons() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, category]);
   useEffect(() => { api.get("/categories").then((r) => setCats(r.data)); }, []);
 
-  const remove = async (id, e) => { e.stopPropagation(); await api.delete(`/lessons/${id}`); toast.success("Lesson deleted"); load(); };
+  const remove = async (id) => { await api.delete(`/lessons/${id}`); toast.success("Lesson deleted"); load(); };
 
   return (
     <div>
       <PageHeader overline="Content" title="Sessions" subtitle="Your VR lesson library with theory + practice blocks and quizzes."
-        action={<button data-testid="new-lesson-btn" onClick={() => navigate("/dashboard/lessons/new")} className="cr-btn-primary"><Plus className="h-4 w-4" /> Create Session</button>} />
+        action={<Button onClick={() => navigate("/dashboard/lessons/new")} data-testid="new-lesson-btn"><Plus className="h-4 w-4" /> Create Session</Button>} />
 
       <div className="cr-toolbar">
         <div className="cr-search"><Search className="cr-search-icon" /><input data-testid="lesson-search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by topic..." className="cr-search-input" /></div>
@@ -67,8 +69,10 @@ export default function Lessons() {
                 <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {l.duration} min</span>
               </div>
               <div className="cr-lesson-actions" onClick={(e) => e.stopPropagation()}>
-                <button data-testid={`lesson-edit-${l.id}`} onClick={() => navigate(`/dashboard/lessons/${l.id}/edit`)} className="cr-btn-sm"><Pencil className="h-3.5 w-3.5" /> Edit</button>
-                <button data-testid={`lesson-delete-${l.id}`} onClick={(e) => remove(l.id, e)} className="cr-btn-sm cr-btn-sm-danger"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                <RowActions testId={`lesson-actions-${l.id}`} actions={[
+                  { label: "Edit", icon: Pencil, onClick: () => navigate(`/dashboard/lessons/${l.id}/edit`), testId: `lesson-edit-${l.id}` },
+                  { label: "Delete", icon: Trash2, danger: true, onClick: () => remove(l.id), testId: `lesson-delete-${l.id}` },
+                ]} />
               </div>
             </div>
           ))}
@@ -85,10 +89,10 @@ export default function Lessons() {
                   <td className="cr-td">{l.teacher}</td>
                   <td className="cr-td">{l.duration} min</td>
                   <td className="cr-td" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-1">
-                      <button onClick={() => navigate(`/dashboard/lessons/${l.id}/edit`)} className="cr-btn-icon"><Pencil className="h-4 w-4" /></button>
-                      <button onClick={(e) => remove(l.id, e)} className="cr-btn-icon cr-btn-icon-danger"><Trash2 className="h-4 w-4" /></button>
-                    </div>
+                    <RowActions testId={`lesson-row-actions-${l.id}`} actions={[
+                      { label: "Edit", icon: Pencil, onClick: () => navigate(`/dashboard/lessons/${l.id}/edit`) },
+                      { label: "Delete", icon: Trash2, danger: true, onClick: () => remove(l.id) },
+                    ]} />
                   </td>
                 </tr>
               ))}

@@ -1,0 +1,18 @@
+.trigger { @apply rounded-md p-1.5 transition-colors; color: var(--cr-text-muted); }
+.trigger:hover { color: var(--cr-text); background-color: var(--cr-hover); }
+.trigger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.content {
+  min-width: 9.5rem;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  background-color: var(--cr-surface);
+  border: 1px solid var(--cr-border-strong);
+  box-shadow: var(--cr-shadow);
+}
+
+.item { @apply flex items-center gap-2 rounded-md px-2.5 py-2 text-sm; color: var(--cr-text-3); cursor: pointer; }
+.item:hover, .item[data-highlighted] { background-color: var(--cr-hover); color: var(--cr-text); outline: none; }
+.item[data-disabled] { opacity: 0.4; pointer-events: none; }
+.danger { color: var(--cr-danger); }
+.danger:hover, .danger[data-highlighted] { color: var(--cr-danger); }

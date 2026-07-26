@@ -5,6 +5,8 @@ import { Plus, Pencil, Trash2, LogIn, LogOut, Users, ArrowUp, ArrowDown } from "
 import { api } from "@/lib/api";
 import { PageHeader, Widget } from "@/components/Widget";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Button } from "@/components/base/Button";
+import { RowActions } from "@/components/RowActions";
 import { fmtDate } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 
@@ -66,7 +68,7 @@ export default function Bookings() {
     <div>
       <PageHeader overline={isStudent ? "My Sessions" : "Scheduling"} title="Bookings"
         subtitle={isStudent ? "Sessions you are invited to and lessons you can join." : "Scheduled & active bookings first, archived last. Click a column to sort."}
-        action={!isStudent && <button data-testid="new-booking-btn" onClick={() => navigate("/dashboard/bookings/new")} className="cr-btn-primary"><Plus className="h-4 w-4" /> New Booking</button>} />
+        action={!isStudent && <Button onClick={() => navigate("/dashboard/bookings/new")} data-testid="new-booking-btn"><Plus className="h-4 w-4" /> New Booking</Button>} />
 
       <Widget testid="bookings-table-widget">
         <div className="overflow-x-auto" data-testid="bookings-table">
@@ -96,12 +98,14 @@ export default function Bookings() {
                   <td className="cr-td text-right" onClick={(e) => e.stopPropagation()}>
                     {isStudent ? (
                       b.joined
-                        ? <button data-testid={`leave-booking-${b.id}`} onClick={() => leave(b.id)} disabled={b.status === "archived"} className="cr-btn-sm cr-btn-sm-danger disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave</button>
-                        : <button data-testid={`join-booking-${b.id}`} onClick={() => join(b.id)} disabled={!b.can_join} className="cr-btn-sm-primary disabled:opacity-40"><LogIn className="h-3.5 w-3.5" /> Join</button>
+                        ? <Button variant="danger" size="sm" data-testid={`leave-booking-${b.id}`} onClick={() => leave(b.id)} disabled={b.status === "archived"}><LogOut className="h-3.5 w-3.5" /> Leave</Button>
+                        : <Button size="sm" data-testid={`join-booking-${b.id}`} onClick={() => join(b.id)} disabled={!b.can_join}><LogIn className="h-3.5 w-3.5" /> Join</Button>
                     ) : (
-                      <div className="flex justify-end gap-1">
-                        <button data-testid={`edit-booking-${b.id}`} onClick={() => navigate(`/dashboard/bookings/${b.id}`)} disabled={b.status !== "scheduled"} className="cr-btn-icon disabled:opacity-30" title={b.status !== "scheduled" ? "Only scheduled bookings can be edited" : "Edit"}><Pencil className="h-4 w-4" /></button>
-                        <button data-testid={`delete-booking-${b.id}`} onClick={() => remove(b.id)} disabled={b.status !== "scheduled"} className="cr-btn-icon cr-btn-icon-danger disabled:opacity-30" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                      <div className="flex justify-end">
+                        <RowActions testId={`booking-actions-${b.id}`} actions={[
+                          { label: "Edit", icon: Pencil, disabled: b.status !== "scheduled", onClick: () => navigate(`/dashboard/bookings/${b.id}`), testId: `edit-booking-${b.id}` },
+                          { label: "Delete", icon: Trash2, danger: true, disabled: b.status !== "scheduled", onClick: () => remove(b.id), testId: `delete-booking-${b.id}` },
+                        ]} />
                       </div>
                     )}
                   </td>
