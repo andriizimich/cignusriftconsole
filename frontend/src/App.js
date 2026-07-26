@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
@@ -25,12 +25,17 @@ const Loader = () => (
   <div className="cr-loader-screen"><div className="cr-spinner" /></div>
 );
 
-function Protected({ children, teacherOnly }) {
+function ProtectedLayout() {
   const { user, loading } = useAuth();
   if (loading) return <Loader />;
   if (!user) return <Navigate to="/login" replace />;
-  if (teacherOnly && user.role === "student") return <Navigate to="/dashboard/bookings" replace />;
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return <DashboardLayout />;
+}
+
+function TeacherGuard() {
+  const { user } = useAuth();
+  if (user?.role === "student") return <Navigate to="/dashboard/bookings" replace />;
+  return <Outlet />;
 }
 
 function RoleHome() {
@@ -48,25 +53,29 @@ function AppRouter() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      <Route path="/dashboard" element={<Protected><RoleHome /></Protected>} />
+      <Route path="/dashboard" element={<ProtectedLayout />}>
+        <Route index element={<RoleHome />} />
 
-      <Route path="/dashboard/lessons" element={<Protected teacherOnly><Lessons /></Protected>} />
-      <Route path="/dashboard/library" element={<Protected teacherOnly><Library /></Protected>} />
-      <Route path="/dashboard/lessons/new" element={<Protected teacherOnly><LessonForm /></Protected>} />
-      <Route path="/dashboard/lessons/:id" element={<Protected teacherOnly><LessonDetail /></Protected>} />
-      <Route path="/dashboard/lessons/:id/edit" element={<Protected teacherOnly><LessonForm /></Protected>} />
+        <Route element={<TeacherGuard />}>
+          <Route path="lessons" element={<Lessons />} />
+          <Route path="library" element={<Library />} />
+          <Route path="lessons/new" element={<LessonForm />} />
+          <Route path="lessons/:id" element={<LessonDetail />} />
+          <Route path="lessons/:id/edit" element={<LessonForm />} />
 
-      <Route path="/dashboard/groups" element={<Protected teacherOnly><Groups /></Protected>} />
-      <Route path="/dashboard/groups/new" element={<Protected teacherOnly><GroupForm /></Protected>} />
-      <Route path="/dashboard/groups/:id" element={<Protected teacherOnly><GroupDetail /></Protected>} />
-      <Route path="/dashboard/groups/:id/edit" element={<Protected teacherOnly><GroupForm /></Protected>} />
+          <Route path="groups" element={<Groups />} />
+          <Route path="groups/new" element={<GroupForm />} />
+          <Route path="groups/:id" element={<GroupDetail />} />
+          <Route path="groups/:id/edit" element={<GroupForm />} />
 
-      <Route path="/dashboard/bookings" element={<Protected><Bookings /></Protected>} />
-      <Route path="/dashboard/bookings/new" element={<Protected teacherOnly><BookingForm /></Protected>} />
-      <Route path="/dashboard/bookings/:id" element={<Protected teacherOnly><BookingDetail /></Protected>} />
+          <Route path="bookings/new" element={<BookingForm />} />
+          <Route path="bookings/:id" element={<BookingDetail />} />
+        </Route>
 
-      <Route path="/dashboard/profile" element={<Protected><Profile /></Protected>} />
-      <Route path="/dashboard/profile/:tab" element={<Protected><Profile /></Protected>} />
+        <Route path="bookings" element={<Bookings />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="profile/:tab" element={<Profile />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

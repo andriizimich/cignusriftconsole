@@ -1,5 +1,4 @@
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import PropTypes from "prop-types";
+import { NavLink, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { LayoutGrid, GraduationCap, Users, CalendarCheck, User, LogOut, Menu, X, IdCard, ShieldCheck, Bell, Plus, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
@@ -29,7 +28,7 @@ const SESSIONS_SUB = [
 ];
 const SUBMENUS = { "/dashboard/profile": PROFILE_SUB, "/dashboard/lessons": SESSIONS_SUB };
 
-export default function DashboardLayout({ children }) {
+export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
@@ -120,12 +119,8 @@ export default function DashboardLayout({ children }) {
         </div>
       )}
 
-      <main className="cr-main"><div className="cr-main-inner">{children}</div></main>
+      <main className="cr-main"><div className="cr-main-inner"><Outlet /></div></main>
     </div>
   );
 }
-
-DashboardLayout.propTypes = {
-  children: PropTypes.node,
-};
 
