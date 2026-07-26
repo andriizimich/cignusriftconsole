@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
 import { Plus, Search, LayoutGrid, Table2, Pencil, Trash2, UserRound, Clock, Tag } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/Widget";
@@ -60,7 +59,7 @@ export default function Lessons() {
       {view === "grid" ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((l, i) => (
-            <motion.div key={l.id} data-testid={`lesson-card-${l.id}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: i * 0.04 }} whileHover={{ y: -4 }} onClick={() => navigate(`/dashboard/lessons/${l.id}`)} className="cr-lesson-card">
+            <div key={l.id} data-testid={`lesson-card-${l.id}`} style={{ animationDelay: `${i * 0.04}s` }} onClick={() => navigate(`/dashboard/lessons/${l.id}`)} className="cr-lesson-card cr-rise cr-fade-up">
               <span className="cr-catbadge"><Tag className="h-3 w-3" />{l.category}</span>
               <h3 className="cr-lesson-title">{l.title}</h3>
               <div className="cr-lesson-meta">
@@ -71,7 +70,7 @@ export default function Lessons() {
                 <button data-testid={`lesson-edit-${l.id}`} onClick={() => navigate(`/dashboard/lessons/${l.id}/edit`)} className="cr-btn-sm"><Pencil className="h-3.5 w-3.5" /> Edit</button>
                 <button data-testid={`lesson-delete-${l.id}`} onClick={(e) => remove(l.id, e)} className="cr-btn-sm cr-btn-sm-danger"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       ) : (

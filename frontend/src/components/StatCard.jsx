@@ -1,15 +1,8 @@
-import { motion } from "framer-motion";
+import PropTypes from "prop-types";
 import { TrendingUp } from "lucide-react";
 
 export const StatCard = ({ label, value, delta, icon: Icon, accent = "#0066FF", index = 0, testid, suffix }) => (
-  <motion.div
-    data-testid={testid}
-    initial={{ opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, delay: index * 0.06 }}
-    whileHover={{ y: -4 }}
-    className="cr-statcard group"
-  >
+  <div data-testid={testid} className="cr-statcard cr-rise cr-fade-up group" style={{ animationDelay: `${index * 0.06}s` }}>
     <div className="cr-statcard-glow" style={{ backgroundColor: accent }} />
     <div className="cr-statcard-row">
       <p className="cr-statcard-label">{label}</p>
@@ -27,5 +20,16 @@ export const StatCard = ({ label, value, delta, icon: Icon, accent = "#0066FF", 
         <span className="cr-statcard-delta-note"> vs last month</span>
       </div>
     )}
-  </motion.div>
+  </div>
 );
+
+StatCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  delta: PropTypes.string,
+  icon: PropTypes.elementType.isRequired,
+  accent: PropTypes.string,
+  index: PropTypes.number,
+  testid: PropTypes.string,
+  suffix: PropTypes.string,
+};

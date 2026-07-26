@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { GraduationCap, CalendarCheck, MonitorPlay, Users, Clock, Radio } from "lucide-react";
 import { api } from "@/lib/api";
@@ -55,14 +54,14 @@ export default function Summary() {
         <Widget testid="schedule-widget" title="My Schedule" action={<Link to="/dashboard/bookings" className="cr-link">View all</Link>}>
           <div className="cr-sched cr-divide">
             {upcoming.map((b, i) => (
-              <motion.div key={b.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="cr-sched-item">
+              <div key={b.id} style={{ animationDelay: `${i * 0.05}s` }} className="cr-sched-item cr-fade-up">
                 <div className="mt-1 flex flex-col items-center"><span className="cr-dot" /><span className="cr-dot-line" /></div>
                 <div className="min-w-0 flex-1">
                   <p className="cr-sched-title">{b.lesson_title}</p>
                   <p className="cr-sched-meta"><Clock className="h-3 w-3" /> {fmtDateShort(b.date)} · {b.time}</p>
                   <p className="cr-sched-sub">{b.group_name} · {b.participants} students</p>
                 </div>
-              </motion.div>
+              </div>
             ))}
             {upcoming.length === 0 && <p className="cr-empty">No upcoming bookings.</p>}
           </div>
