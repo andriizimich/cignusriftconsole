@@ -6,31 +6,37 @@ export const blockDuration = (b) => (b.type === "practice" || b.approx ? `~${b.d
 export const ContentBlockCard = ({ block, onRemove, testid }) => {
   const [preview, setPreview] = useState(false);
   return (
-    <div data-testid={testid} className="group relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0A0A0B]">
-      <div className="relative aspect-video overflow-hidden">
-        <img src={block.thumbnail} alt={block.title} loading="lazy" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-black/40" />
-        <button onClick={() => setPreview(true)} className="absolute inset-0 flex items-center justify-center" title="Preview">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md ring-1 ring-white/30 transition-transform group-hover:scale-110"><Play className="h-5 w-5 text-white" /></span>
+    <div data-testid={testid} className="cr-block group">
+      <div className="cr-block-media">
+        <img src={block.thumbnail} alt={block.title} loading="lazy" className="cr-block-img" />
+        <div className="cr-block-scrim" />
+        <button onClick={() => setPreview(true)} className="cr-block-play" title="Preview">
+          <span className="cr-block-play-ring"><Play className="cr-block-play-icon h-5 w-5" /></span>
         </button>
-        <span className={`absolute left-2 top-2 rounded-sm px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${block.type === "theory" ? "bg-[#0066FF]/80 text-white" : "bg-[#00FF66]/80 text-black"}`}>{block.type}</span>
-        {onRemove && <button onClick={onRemove} className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-[#FF3366]"><X className="h-3.5 w-3.5" /></button>}
+        <span className={`cr-block-badge ${block.type === "theory" ? "cr-block-badge--theory" : "cr-block-badge--practice"}`}>{block.type}</span>
+        {onRemove && <button onClick={onRemove} className="cr-block-remove"><X className="h-3.5 w-3.5" /></button>}
       </div>
-      <div className="p-4">
-        <p className="truncate text-sm text-white">{block.title}</p>
-        <div className="mt-2 flex items-center gap-3 text-[11px] text-zinc-500">
+      <div className="cr-block-body">
+        <p className="cr-block-title">{block.title}</p>
+        <div className="cr-block-meta">
           <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {blockDuration(block)}</span>
           <span className="truncate">{block.category}</span>
-          <span className="ml-auto shrink-0 text-zinc-600">{block.created_at}</span>
+          <span className="cr-block-date">{block.created_at}</span>
         </div>
       </div>
 
       {preview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6" onClick={() => setPreview(false)}>
-          <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-[#0A0A0B] p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between"><h3 className="font-display text-lg tracking-tight">{block.title}</h3><button onClick={() => setPreview(false)} className="text-zinc-500 hover:text-white"><X className="h-5 w-5" /></button></div>
-            <div className="flex aspect-video items-center justify-center rounded-md border border-white/10 bg-black">
-              <div className="text-center"><Play className="mx-auto h-10 w-10 text-zinc-700" /><p className="mt-3 text-xs uppercase tracking-[0.3em] text-zinc-600">Video preview placeholder</p></div>
+        <div className="cr-modal-overlay" onClick={() => setPreview(false)}>
+          <div className="cr-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="cr-modal-title">{block.title}</h3>
+              <button onClick={() => setPreview(false)} className="cr-modal-x"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="cr-video-ph">
+              <div className="text-center">
+                <Play className="cr-video-ph-icon mx-auto h-10 w-10" />
+                <p className="cr-video-ph-text">Video preview placeholder</p>
+              </div>
             </div>
           </div>
         </div>
