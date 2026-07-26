@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Search, ChevronLeft, ChevronRight, Library as LibraryIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/Widget";
+import { Button } from "@/components/base/Button";
 import { ContentBlockCard } from "@/components/ContentBlockCard";
 
 const PAGE = 24;
@@ -38,14 +39,14 @@ export default function Library() {
       <PageHeader overline="Interactive Content" title="Content Library" subtitle="Browse theory and practice blocks to compose your VR lessons." />
 
       <div className="cr-tabs">
-        <button data-testid="lib-tab-theory" onClick={() => setType("theory")} className={`cr-tab ${type === "theory" ? "is-active" : ""}`}>
+        <Button variant="bare" data-testid="lib-tab-theory" onClick={() => setType("theory")} className={`cr-tab ${type === "theory" ? "is-active" : ""}`}>
           Theory <span className="ml-1 text-xs cr-tm">({counts.theory})</span>
           {type === "theory" && <span className="cr-tab-bar" />}
-        </button>
-        <button data-testid="lib-tab-practice" onClick={() => setType("practice")} className={`cr-tab ${type === "practice" ? "is-active" : ""}`}>
+        </Button>
+        <Button variant="bare" data-testid="lib-tab-practice" onClick={() => setType("practice")} className={`cr-tab ${type === "practice" ? "is-active" : ""}`}>
           Practice <span className="ml-1 text-xs cr-tm">({counts.practice})</span>
           {type === "practice" && <span className="cr-tab-bar cr-tab-bar-green" />}
-        </button>
+        </Button>
       </div>
 
       <div className="cr-toolbar">
@@ -63,9 +64,9 @@ export default function Library() {
       {data.items.length === 0 && <p className="cr-empty">No content matches your filters.</p>}
 
       <div className="mt-8 flex items-center justify-center gap-4">
-        <button data-testid="library-prev" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="cr-pager-btn"><ChevronLeft className="h-4 w-4" /> Prev</button>
+        <Button variant="bare" data-testid="library-prev" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="cr-pager-btn"><ChevronLeft className="h-4 w-4" /> Prev</Button>
         <span className="cr-pager-info">Page {page + 1} / {totalPages}</span>
-        <button data-testid="library-next" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="cr-pager-btn">Next <ChevronRight className="h-4 w-4" /></button>
+        <Button variant="bare" data-testid="library-next" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="cr-pager-btn">Next <ChevronRight className="h-4 w-4" /></Button>
       </div>
     </div>
   );

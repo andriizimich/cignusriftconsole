@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { Camera, Trash2, Loader2, Bell, Mail } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader, Widget } from "@/components/Widget";
+import { Button } from "@/components/base/Button";
+import { Img } from "@/components/base/Img";
 import { useAuth, formatApiError } from "@/context/AuthContext";
 
 const TABS = ["personal", "security", "notifications"];
@@ -58,9 +60,9 @@ export default function Profile() {
   };
 
   const Toggle = ({ on, onClick, testid }) => (
-    <button data-testid={testid} onClick={onClick} role="switch" aria-checked={on} className={`cr-toggle ${on ? "is-on" : ""}`}>
+    <Button variant="bare" data-testid={testid} onClick={onClick} role="switch" aria-checked={on} className={`cr-toggle ${on ? "is-on" : ""}`}>
       <span className={`cr-toggle-knob ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
-    </button>
+    </Button>
   );
 
   return (
@@ -69,10 +71,10 @@ export default function Profile() {
 
       <div className="cr-tabs">
         {TABS.map((t) => (
-          <button key={t} data-testid={`profile-tab-${t}`} onClick={() => navigate(`/dashboard/profile/${t}`)} className={`cr-tab ${active === t ? "is-active" : ""}`}>
+          <Button variant="bare" key={t} data-testid={`profile-tab-${t}`} onClick={() => navigate(`/dashboard/profile/${t}`)} className={`cr-tab ${active === t ? "is-active" : ""}`}>
             {t === "personal" ? "Personal Data" : t}
             {active === t && <span className="cr-tab-bar" />}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -80,10 +82,10 @@ export default function Profile() {
         <Widget testid="profile-personal-widget" className="max-w-2xl">
           <div className="space-y-5 p-6">
             <div className="flex items-center gap-5">
-              {p.picture ? <img src={p.picture} alt="avatar" className="cr-avatar-lg-img" /> : <div className="cr-avatar-lg">{p.name?.[0] || "U"}</div>}
+              {p.picture ? <Img src={p.picture} alt="avatar" className="cr-avatar-lg-img" /> : <div className="cr-avatar-lg">{p.name?.[0] || "U"}</div>}
               <div className="flex gap-2">
                 <label data-testid="avatar-upload" className="cr-btn-sm cursor-pointer"><Camera className="h-3.5 w-3.5" /> Upload<input type="file" accept="image/*" className="hidden" onChange={onAvatar} /></label>
-                {p.picture && <button data-testid="avatar-remove" onClick={() => setP({ ...p, picture: null })} className="cr-btn-sm cr-btn-sm-danger"><Trash2 className="h-3.5 w-3.5" /> Remove</button>}
+                {p.picture && <Button variant="bare" data-testid="avatar-remove" onClick={() => setP({ ...p, picture: null })} className="cr-btn-sm cr-btn-sm-danger"><Trash2 className="h-3.5 w-3.5" /> Remove</Button>}
               </div>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
@@ -92,7 +94,7 @@ export default function Profile() {
               <div><label className="cr-label">Contact Phone</label><input data-testid="profile-phone-input" className="cr-input" value={p.phone} onChange={(e) => setP({ ...p, phone: e.target.value })} /></div>
               <div><label className="cr-label">Institution / Company</label><input data-testid="profile-institution-input" className="cr-input" value={p.institution} onChange={(e) => setP({ ...p, institution: e.target.value })} /></div>
             </div>
-            <button data-testid="profile-save-btn" onClick={saveProfile} disabled={busy} className="cr-btn-primary disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Save changes</button>
+            <Button variant="bare" data-testid="profile-save-btn" onClick={saveProfile} disabled={busy} className="cr-btn-primary disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Save changes</Button>
           </div>
         </Widget>
       )}
@@ -103,7 +105,7 @@ export default function Profile() {
             <div><label className="cr-label">Current Password</label><input data-testid="current-password-input" type="password" className="cr-input" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></div>
             <div><label className="cr-label">New Password</label><input data-testid="new-password-input" type="password" className="cr-input" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></div>
             <div><label className="cr-label">Confirm New Password</label><input data-testid="confirm-password-input" type="password" className="cr-input" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} /></div>
-            <button data-testid="change-password-btn" onClick={changePw} disabled={busy} className="cr-btn-primary disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Update password</button>
+            <Button variant="bare" data-testid="change-password-btn" onClick={changePw} disabled={busy} className="cr-btn-primary disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Update password</Button>
           </div>
         </Widget>
       )}

@@ -49,10 +49,10 @@ export default function Lessons() {
           <option value="category">Sort: Category</option>
           <option value="duration">Sort: Duration</option>
         </select>
-        <button data-testid="lesson-sort-dir" onClick={() => setSort((s) => ({ ...s, dir: s.dir === "asc" ? "desc" : "asc" }))} className="cr-select uppercase">{sort.dir === "asc" ? "Asc ↑" : "Desc ↓"}</button>
+        <Button variant="bare" data-testid="lesson-sort-dir" onClick={() => setSort((s) => ({ ...s, dir: s.dir === "asc" ? "desc" : "asc" }))} className="cr-select uppercase">{sort.dir === "asc" ? "Asc ↑" : "Desc ↓"}</Button>
         <div className="cr-viewtoggle">
-          <button data-testid="lesson-view-grid" onClick={() => setView("grid")} className={`cr-viewtoggle-btn ${view === "grid" ? "is-active" : ""}`}><LayoutGrid className="h-4 w-4" /></button>
-          <button data-testid="lesson-view-table" onClick={() => setView("table")} className={`cr-viewtoggle-btn ${view === "table" ? "is-active" : ""}`}><Table2 className="h-4 w-4" /></button>
+          <Button variant="bare" data-testid="lesson-view-grid" onClick={() => setView("grid")} className={`cr-viewtoggle-btn ${view === "grid" ? "is-active" : ""}`}><LayoutGrid className="h-4 w-4" /></Button>
+          <Button variant="bare" data-testid="lesson-view-table" onClick={() => setView("table")} className={`cr-viewtoggle-btn ${view === "table" ? "is-active" : ""}`}><Table2 className="h-4 w-4" /></Button>
         </div>
       </div>
 

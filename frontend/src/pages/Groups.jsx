@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { UserRound, Plus, Compass } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/Widget";
+import { Button } from "@/components/base/Button";
 import { fmtDate } from "@/lib/format";
 
 export default function Groups() {
@@ -13,7 +14,7 @@ export default function Groups() {
   return (
     <div>
       <PageHeader overline="Cohorts" title="Groups" subtitle="Trainee groups by discipline, with assigned teacher."
-        action={<button data-testid="add-group-btn" onClick={() => navigate("/dashboard/groups/new")} className="cr-btn-primary"><Plus className="h-4 w-4" /> New Group</button>} />
+        action={<Button variant="bare" data-testid="add-group-btn" onClick={() => navigate("/dashboard/groups/new")} className="cr-btn-primary"><Plus className="h-4 w-4" /> New Group</Button>} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {groups.map((g, i) => (
           <div key={g.id} data-testid={`group-card-${g.id}`} style={{ animationDelay: `${i * 0.05}s` }} onClick={() => navigate(`/dashboard/groups/${g.id}`)} className="cr-groupcard cr-rise cr-fade-up">

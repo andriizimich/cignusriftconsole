@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import { Widget } from "@/components/Widget";
 import { ContentBlockCard } from "@/components/ContentBlockCard";
 import { useTheme } from "@/context/ThemeContext";
+import { Button } from "@/components/base/Button";
+import { Heading } from "@/components/base/Heading";
 
 export default function LessonDetail() {
   const { id } = useParams();
@@ -42,15 +44,15 @@ export default function LessonDetail() {
 
   return (
     <div>
-      <button data-testid="lesson-back-btn" onClick={() => navigate("/dashboard/lessons")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Sessions</button>
+      <Button variant="bare" data-testid="lesson-back-btn" onClick={() => navigate("/dashboard/lessons")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Sessions</Button>
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <span className="cr-catbadge"><Tag className="h-3 w-3" />{l.category}</span>
-          <h1 className="cr-detail-h1 mt-3">{l.title}</h1>
+          <Heading level={1} bare className="cr-detail-h1 mt-3">{l.title}</Heading>
           <p className="mt-2 max-w-2xl text-sm cr-t3">{l.description}</p>
           <p className="mt-3 flex items-center gap-2 text-sm cr-tm"><Clock className="cr-muted-icon h-4 w-4" /> {l.duration} min · {l.theory_blocks?.length || 0} theory · {l.practice_blocks?.length || 0} practice · {quizCount} quizzes</p>
         </div>
-        <button data-testid="lesson-edit-btn" onClick={() => navigate(`/dashboard/lessons/${id}/edit`)} className="cr-btn-sm"><Pencil className="h-4 w-4" /> Edit</button>
+        <Button variant="bare" data-testid="lesson-edit-btn" onClick={() => navigate(`/dashboard/lessons/${id}/edit`)} className="cr-btn-sm"><Pencil className="h-4 w-4" /> Edit</Button>
       </div>
 
       <div className="space-y-6">

@@ -1,3 +1,3 @@
-.h1 { @apply font-display text-3xl font-light tracking-tighter sm:text-4xl; color: var(--cr-text); }
-.h2 { @apply font-display text-lg font-medium tracking-tight; color: var(--cr-text); }
-.h3 { @apply font-display text-base font-medium tracking-tight; color: var(--cr-text); }
+.h1 { @apply text-3xl font-light tracking-tighter sm:text-4xl; font-family: "Unbounded", sans-serif; color: var(--cr-text); }
+.h2 { @apply text-lg font-medium tracking-tight; font-family: "Unbounded", sans-serif; color: var(--cr-text); }
+.h3 { @apply text-base font-medium tracking-tight; font-family: "Unbounded", sans-serif; color: var(--cr-text); }

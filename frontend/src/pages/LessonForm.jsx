@@ -7,6 +7,9 @@ import { blockDuration } from "@/components/ContentBlockCard";
 import { LibraryPickerModal } from "@/components/LibraryPickerModal";
 import { formatApiError } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { Button } from "@/components/base/Button";
+import { Img } from "@/components/base/Img";
+import { Heading } from "@/components/base/Heading";
 
 const newQuiz = () => ({ question: "", options: ["", "", "", ""], correct: 0 });
 
@@ -64,14 +67,14 @@ export default function LessonForm() {
   const QuizEditor = ({ type, accent }) => {
     const qz = sectionQuiz[type];
     const a = theme === "light" && accent === "#00FF66" ? "#0a8f4f" : accent;
-    if (!qz) return <button type="button" data-testid={`add-quiz-${type}`} onClick={() => addQuiz(type)} className="mt-4 cr-btn-sm"><Plus className="h-3.5 w-3.5" /> Attach {type} quiz</button>;
+    if (!qz) return <Button variant="bare" type="button" data-testid={`add-quiz-${type}`} onClick={() => addQuiz(type)} className="mt-4 cr-btn-sm"><Plus className="h-3.5 w-3.5" /> Attach {type} quiz</Button>;
     return (
       <div className="mt-4 rounded-md border p-3" style={{ borderColor: `${a}40`, background: `${a}0D` }}>
-        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4" style={{ color: a }} /><input data-testid={`quiz-question-${type}`} className="cr-input" value={qz.question} onChange={(e) => updateQuiz(type, { question: e.target.value })} placeholder={`${type === "theory" ? "Theory" : "Practice"} quiz question`} /><button data-testid={`quiz-remove-${type}`} onClick={() => removeQuiz(type)} className="cr-btn-icon cr-btn-icon-danger"><X className="h-4 w-4" /></button></div>
+        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4" style={{ color: a }} /><input data-testid={`quiz-question-${type}`} className="cr-input" value={qz.question} onChange={(e) => updateQuiz(type, { question: e.target.value })} placeholder={`${type === "theory" ? "Theory" : "Practice"} quiz question`} /><Button variant="bare" data-testid={`quiz-remove-${type}`} onClick={() => removeQuiz(type)} className="cr-btn-icon cr-btn-icon-danger"><X className="h-4 w-4" /></Button></div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {qz.options.map((o, oi) => (
             <div key={oi} className="flex items-center gap-2">
-              <button type="button" data-testid={`quiz-correct-${type}-${oi}`} title="Mark correct" onClick={() => updateQuiz(type, { correct: oi })} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border" style={{ borderColor: qz.correct === oi ? a : "var(--cr-border-strong-2)", backgroundColor: qz.correct === oi ? a : "transparent" }}>{qz.correct === oi && <Check className="h-3 w-3" style={{ color: "#fff" }} />}</button>
+              <Button variant="bare" type="button" data-testid={`quiz-correct-${type}-${oi}`} title="Mark correct" onClick={() => updateQuiz(type, { correct: oi })} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border" style={{ borderColor: qz.correct === oi ? a : "var(--cr-border-strong-2)", backgroundColor: qz.correct === oi ? a : "transparent" }}>{qz.correct === oi && <Check className="h-3 w-3" style={{ color: "#fff" }} />}</Button>
               <input className="cr-input" value={o} onChange={(e) => updateQuiz(type, { options: qz.options.map((x, xi) => (xi === oi ? e.target.value : x)) })} placeholder={`Option ${oi + 1}`} />
             </div>
           ))}
@@ -84,27 +87,27 @@ export default function LessonForm() {
     <div>
       <div className="mb-3 flex items-center gap-2">
         <div className="relative flex-1"><Search className="cr-field-icon" /><input data-testid={`search-${type}`} className="cr-input pl-9" value={quickQ[type]} onChange={(e) => setQuickQ((s) => ({ ...s, [type]: e.target.value }))} placeholder={`Search ${type} library...`} /></div>
-        <button type="button" data-testid={`browse-${type}`} onClick={() => setModal(type)} className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-4 py-2.5 text-sm transition-colors" style={{ borderColor: `${accent}55`, color: accent }}><LibraryBig className="h-4 w-4" /> Library</button>
+        <Button variant="bare" type="button" data-testid={`browse-${type}`} onClick={() => setModal(type)} className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-4 py-2.5 text-sm transition-colors" style={{ borderColor: `${accent}55`, color: accent }}><LibraryBig className="h-4 w-4" /> Library</Button>
       </div>
       {quickQ[type] && (
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {quickRes[type].map((b) => (
-            <button key={b.id} type="button" data-testid={`quick-${type}-${b.id}`} onClick={() => addBlock(type, b)} className="cr-quicktile">
-              <img src={b.thumbnail} alt="" loading="lazy" className="h-9 w-14 rounded object-cover" />
+            <Button variant="bare" key={b.id} type="button" data-testid={`quick-${type}-${b.id}`} onClick={() => addBlock(type, b)} className="cr-quicktile">
+              <Img src={b.thumbnail} alt="" loading="lazy" className="h-9 w-14 rounded object-cover" />
               <div className="min-w-0"><p className="cr-quicktile-title">{b.title}</p><p className="cr-quicktile-meta">{blockDuration(b)}</p></div>
-            </button>
+            </Button>
           ))}
           {quickRes[type].length === 0 && <p className="col-span-full text-xs cr-faint-note">No matches — try the full Library.</p>}
         </div>
       )}
       <p className="cr-label">{type === "theory" ? "Theory" : "Practice"} Blocks * <span className="cr-faint-note">({selected[type].length})</span></p>
       {selected[type].length === 0 ? (
-        <button type="button" onClick={() => setModal(type)} className="cr-dashed">Open library to add {type} blocks</button>
+        <Button variant="bare" type="button" onClick={() => setModal(type)} className="cr-dashed">Open library to add {type} blocks</Button>
       ) : (
         <div className="space-y-3">
           {selected[type].map((b) => (
             <div key={b.id} data-testid={`selected-${type}-${b.id}`} className="cr-selblock">
-              <div className="flex items-center gap-3"><img src={b.thumbnail} alt="" className="h-10 w-16 rounded object-cover" /><div className="flex-1"><p className="cr-t text-sm">{b.title}</p><p className="cr-tm text-[11px]">{blockDuration(b)} · {b.category}</p></div><button data-testid={`remove-${type}-${b.id}`} onClick={() => removeBlock(type, b.id)} className="cr-btn-icon cr-btn-icon-danger"><X className="h-4 w-4" /></button></div>
+              <div className="flex items-center gap-3"><Img src={b.thumbnail} alt="" className="h-10 w-16 rounded object-cover" /><div className="flex-1"><p className="cr-t text-sm">{b.title}</p><p className="cr-tm text-[11px]">{blockDuration(b)} · {b.category}</p></div><Button variant="bare" data-testid={`remove-${type}-${b.id}`} onClick={() => removeBlock(type, b.id)} className="cr-btn-icon cr-btn-icon-danger"><X className="h-4 w-4" /></Button></div>
             </div>
           ))}
         </div>
@@ -116,8 +119,8 @@ export default function LessonForm() {
 
   return (
     <div className="max-w-4xl">
-      <button onClick={() => navigate("/dashboard/lessons")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Sessions</button>
-      <h1 className="cr-form-h1">{editing ? "Edit Session" : "Create Session"}</h1>
+      <Button variant="bare" onClick={() => navigate("/dashboard/lessons")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Sessions</Button>
+      <Heading level={1} bare className="cr-form-h1">{editing ? "Edit Session" : "Create Session"}</Heading>
 
       <div className="cr-panel space-y-6">
         <div><label className="cr-label">Title *</label><input data-testid="lesson-title-input" className="cr-input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. MetaHuman Interview Simulation" /></div>
@@ -129,8 +132,8 @@ export default function LessonForm() {
         <div className="cr-divider-top-6"><Section type="theory" accent="#0066FF" /></div>
         <div className="cr-divider-top-6"><Section type="practice" accent="#00FF66" /></div>
         <div className="cr-divider-top flex gap-3">
-          <button data-testid="lesson-submit-btn" onClick={submit} className="cr-btn-primary">{editing ? "Save Changes" : "Create Session"}</button>
-          <button onClick={() => navigate("/dashboard/lessons")} className="cr-btn-ghost">Cancel</button>
+          <Button variant="bare" data-testid="lesson-submit-btn" onClick={submit} className="cr-btn-primary">{editing ? "Save Changes" : "Create Session"}</Button>
+          <Button variant="bare" onClick={() => navigate("/dashboard/lessons")} className="cr-btn-ghost">Cancel</Button>
         </div>
       </div>
 

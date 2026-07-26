@@ -7,6 +7,8 @@ import { Widget } from "@/components/Widget";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ContentBlockCard } from "@/components/ContentBlockCard";
 import { fmtDate } from "@/lib/format";
+import { Button } from "@/components/base/Button";
+import { Heading } from "@/components/base/Heading";
 
 export default function BookingDetail() {
   const { id } = useParams();
@@ -25,16 +27,16 @@ export default function BookingDetail() {
 
   return (
     <div>
-      <button data-testid="booking-back-btn" onClick={() => navigate("/dashboard/bookings")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Bookings</button>
+      <Button variant="bare" data-testid="booking-back-btn" onClick={() => navigate("/dashboard/bookings")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Bookings</Button>
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="mb-2 font-mono-plex text-xs cr-tm">{b.id}</p>
-          <h1 className="cr-detail-h1">{b.lesson_title}</h1>
+          <Heading level={1} bare className="cr-detail-h1">{b.lesson_title}</Heading>
           <p className="mt-2 max-w-2xl text-sm cr-t3">{l?.description}</p>
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge status={b.status} />
-          {b.status === "scheduled" && <button data-testid="booking-edit-btn" onClick={() => setEdit(true)} className="cr-btn-sm"><Pencil className="h-4 w-4" /> Edit Booking</button>}
+          {b.status === "scheduled" && <Button variant="bare" data-testid="booking-edit-btn" onClick={() => setEdit(true)} className="cr-btn-sm"><Pencil className="h-4 w-4" /> Edit Booking</Button>}
         </div>
       </div>
 
@@ -69,7 +71,7 @@ export default function BookingDetail() {
       {edit && (
         <div className="cr-modal-overlay" onClick={() => setEdit(false)}>
           <div className="cr-modal-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-5 flex items-center justify-between"><h3 className="cr-modal-title">Edit Booking</h3><button onClick={() => setEdit(false)} className="cr-modal-x"><X className="h-5 w-5" /></button></div>
+            <div className="mb-5 flex items-center justify-between"><h3 className="cr-modal-title">Edit Booking</h3><Button variant="bare" onClick={() => setEdit(false)} className="cr-modal-x"><X className="h-5 w-5" /></Button></div>
             <div className="space-y-4">
               <div><label className="cr-label">Group</label><select data-testid="edit-group-select" className="cr-input" value={form.group_id} onChange={(e) => setForm({ ...form, group_id: e.target.value })}>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
               <div className="grid grid-cols-2 gap-3">
@@ -77,7 +79,7 @@ export default function BookingDetail() {
                 <div><label className="cr-label">Time</label><input data-testid="edit-time-input" type="time" className="cr-input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} /></div>
               </div>
               <div><label className="cr-label">Duration (min)</label><input data-testid="edit-duration-input" type="number" className="cr-input" value={form.duration} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })} /></div>
-              <button data-testid="edit-save-btn" onClick={save} className="cr-btn-block"><Check className="h-4 w-4" /> Save Changes</button>
+              <Button variant="bare" data-testid="edit-save-btn" onClick={save} className="cr-btn-block"><Check className="h-4 w-4" /> Save Changes</Button>
             </div>
           </div>
         </div>

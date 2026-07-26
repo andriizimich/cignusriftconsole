@@ -1,7 +1,10 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import PropTypes from "prop-types";
 import { LayoutGrid, GraduationCap, Users, CalendarCheck, User, LogOut, Menu, X, IdCard, ShieldCheck, Bell, Plus, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
+import { Button } from "@/components/base/Button";
+import { Img } from "@/components/base/Img";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -75,14 +78,14 @@ export default function DashboardLayout({ children }) {
   const UserCard = (
     <div className="cr-usercard">
       <div className="flex items-center gap-3">
-        {user?.picture ? <img src={user.picture} alt={user.name} className="cr-avatar-img" />
+        {user?.picture ? <Img src={user.picture} alt={user.name} className="cr-avatar-img" />
           : <div className="cr-avatar">{user?.name?.[0] || "U"}</div>}
         <div className="min-w-0 flex-1">
           <p className="cr-user-name" data-testid="sidebar-user-name">{user?.name}</p>
           <p className="cr-user-role">{user?.role}</p>
         </div>
-        <button data-testid="theme-toggle" onClick={toggle} className="cr-icon-btn" title="Toggle theme">{theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}</button>
-        <button data-testid="logout-button" onClick={handleLogout} className="cr-icon-btn cr-icon-btn-danger" title="Log out"><LogOut className="h-4 w-4" /></button>
+        <Button variant="bare" data-testid="theme-toggle" onClick={toggle} className="cr-icon-btn" title="Toggle theme">{theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}</Button>
+        <Button variant="bare" data-testid="logout-button" onClick={handleLogout} className="cr-icon-btn cr-icon-btn-danger" title="Log out"><LogOut className="h-4 w-4" /></Button>
       </div>
     </div>
   );
@@ -101,8 +104,8 @@ export default function DashboardLayout({ children }) {
       <div className="cr-mobilebar">
         <Logo compact />
         <div className="flex items-center gap-1">
-          <button data-testid="theme-toggle-mobile" onClick={toggle} className="cr-icon-btn" title="Toggle theme">{theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}</button>
-          <button data-testid="mobile-menu-button" onClick={() => setOpen(true)} className="cr-icon-btn"><Menu className="h-5 w-5" /></button>
+          <Button variant="bare" data-testid="theme-toggle-mobile" onClick={toggle} className="cr-icon-btn" title="Toggle theme">{theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}</Button>
+          <Button variant="bare" data-testid="mobile-menu-button" onClick={() => setOpen(true)} className="cr-icon-btn"><Menu className="h-5 w-5" /></Button>
         </div>
       </div>
 
@@ -110,7 +113,7 @@ export default function DashboardLayout({ children }) {
         <div className="cr-drawer-overlay">
           <div className="cr-drawer-scrim" onClick={() => setOpen(false)} />
           <div className="cr-drawer">
-            <div className="flex items-center justify-between p-6"><Logo /><button onClick={() => setOpen(false)} className="cr-icon-btn"><X className="h-5 w-5" /></button></div>
+            <div className="flex items-center justify-between p-6"><Logo /><Button variant="bare" onClick={() => setOpen(false)} className="cr-icon-btn"><X className="h-5 w-5" /></Button></div>
             <nav className="flex-1 space-y-1 overflow-y-auto px-3"><NavList onNavigate={() => setOpen(false)} /></nav>
             {UserCard}
           </div>
@@ -121,3 +124,8 @@ export default function DashboardLayout({ children }) {
     </div>
   );
 }
+
+DashboardLayout.propTypes = {
+  children: PropTypes.node,
+};
+

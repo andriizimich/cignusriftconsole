@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { X, Search, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { blockDuration } from "@/components/ContentBlockCard";
+import { Button } from "@/components/base/Button";
+import { Img } from "@/components/base/Img";
 
 const PAGE = 12;
 
@@ -42,7 +44,7 @@ export const LibraryPickerModal = ({ open, type, initialBlocks = [], onClose, on
       <div className="cr-modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="cr-modal-lg-head">
           <div><h3 className="cr-modal-title">Content Library — {type === "theory" ? "Theory" : "Practice"}</h3><p className="cr-modal-sub">{data.total} blocks available · {count} selected</p></div>
-          <button onClick={onClose} className="cr-modal-x"><X className="h-5 w-5" /></button>
+          <Button variant="bare" onClick={onClose} className="cr-modal-x"><X className="h-5 w-5" /></Button>
         </div>
 
         <div className="cr-modal-lg-head flex-wrap gap-3">
@@ -58,29 +60,29 @@ export const LibraryPickerModal = ({ open, type, initialBlocks = [], onClose, on
             {data.items.map((b) => {
               const sel = Boolean(selected[b.id]);
               return (
-                <button key={b.id} type="button" data-testid={`modal-block-${b.id}`} onClick={() => toggle(b)} className={`cr-libtile ${sel ? "is-sel" : ""}`}>
+                <Button variant="bare" key={b.id} type="button" data-testid={`modal-block-${b.id}`} onClick={() => toggle(b)} className={`cr-libtile ${sel ? "is-sel" : ""}`}>
                   <div className="relative aspect-video">
-                    <img src={b.thumbnail} alt={b.title} loading="lazy" className="h-full w-full object-cover" />
+                    <Img src={b.thumbnail} alt={b.title} loading="lazy" className="h-full w-full object-cover" />
                     <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.3)" }} />
                     <span className="cr-libtile-badge">{b.category}</span>
                     {sel && <span className="cr-libtile-check"><Check className="h-3 w-3 text-white" /></span>}
                   </div>
                   <div className="cr-libtile-body"><p className="cr-libtile-title">{b.title}</p><p className="cr-libtile-meta">{blockDuration(b)}</p></div>
-                </button>
+                </Button>
               );
             })}
           </div>
           {data.items.length === 0 && <p className="cr-empty text-center">No content matches your filters.</p>}
           <div className="mt-6 flex items-center justify-center gap-4">
-            <button data-testid="modal-prev" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="cr-pager-btn"><ChevronLeft className="h-4 w-4" /> Prev</button>
+            <Button variant="bare" data-testid="modal-prev" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="cr-pager-btn"><ChevronLeft className="h-4 w-4" /> Prev</Button>
             <span className="cr-pager-info">Page {page + 1} / {totalPages}</span>
-            <button data-testid="modal-next" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="cr-pager-btn">Next <ChevronRight className="h-4 w-4" /></button>
+            <Button variant="bare" data-testid="modal-next" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="cr-pager-btn">Next <ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
 
         <div className="cr-modal-lg-head justify-end gap-3" style={{ borderTop: "1px solid var(--cr-border)", borderBottom: "none" }}>
-          <button onClick={onClose} className="cr-btn-ghost">Cancel</button>
-          <button data-testid="modal-confirm" onClick={() => { onConfirm(Object.values(selected)); onClose(); }} className="cr-btn-primary">Add {count} block{count === 1 ? "" : "s"}</button>
+          <Button variant="bare" onClick={onClose} className="cr-btn-ghost">Cancel</Button>
+          <Button variant="bare" data-testid="modal-confirm" onClick={() => { onConfirm(Object.values(selected)); onClose(); }} className="cr-btn-primary">Add {count} block{count === 1 ? "" : "s"}</Button>
         </div>
       </div>
     </div>

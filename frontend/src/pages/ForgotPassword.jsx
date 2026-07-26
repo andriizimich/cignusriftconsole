@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { Mail, KeyRound, Lock, ArrowLeft, Loader2, Check } from "lucide-react";
 import { useAuth, formatApiError } from "@/context/AuthContext";
 import { AuthShell, inputCls, labelCls } from "@/components/AuthShell";
+import { Button } from "@/components/base/Button";
+import { Heading } from "@/components/base/Heading";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -42,7 +44,7 @@ export default function ForgotPassword() {
   return (
     <AuthShell>
       <Link to="/login" className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Back to sign in</Link>
-      <h1 className="cr-auth-h1">Reset password</h1>
+      <Heading level={1} bare className="cr-auth-h1">Reset password</Heading>
       <p className="cr-auth-sub">{step === 1 ? "Enter your email to receive a code." : step === 2 ? "Enter the 6-digit code we sent." : "Choose a new password."}</p>
       <Steps />
 
@@ -50,7 +52,7 @@ export default function ForgotPassword() {
         <form onSubmit={sendCode} className="space-y-4">
           <div><label className={labelCls}>Email</label><div className="relative"><Mail className="cr-field-icon" /><input data-testid="reset-email-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={`${inputCls} pl-9`} placeholder="you@company.com" /></div></div>
           {err && <p data-testid="reset-error" className="cr-error">{err}</p>}
-          <button data-testid="send-code-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send code"}</button>
+          <Button variant="bare" type="submit" data-testid="send-code-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send code"}</Button>
         </form>
       )}
 
@@ -58,8 +60,8 @@ export default function ForgotPassword() {
         <form onSubmit={checkCode} className="space-y-4">
           <div><label className={labelCls}>Verification Code</label><div className="relative"><KeyRound className="cr-field-icon" /><input data-testid="reset-code-input" required value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} className={`${inputCls} pl-9 font-mono-plex tracking-[0.3em]`} placeholder="000000" /></div></div>
           {err && <p data-testid="reset-error" className="cr-error">{err}</p>}
-          <button data-testid="verify-code-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}</button>
-          <button type="button" onClick={() => setStep(1)} className="cr-guest-link">Change email</button>
+          <Button variant="bare" type="submit" data-testid="verify-code-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}</Button>
+          <Button variant="bare" type="button" onClick={() => setStep(1)} className="cr-guest-link">Change email</Button>
         </form>
       )}
 
@@ -68,7 +70,7 @@ export default function ForgotPassword() {
           <div><label className={labelCls}>New Password</label><div className="relative"><Lock className="cr-field-icon" /><input data-testid="reset-new-password-input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={`${inputCls} pl-9`} placeholder="••••••••" /></div></div>
           <div><label className={labelCls}>Confirm Password</label><div className="relative"><Lock className="cr-field-icon" /><input data-testid="reset-confirm-password-input" type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className={`${inputCls} pl-9`} placeholder="••••••••" /></div></div>
           {err && <p data-testid="reset-error" className="cr-error">{err}</p>}
-          <button data-testid="reset-submit-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}</button>
+          <Button variant="bare" type="submit" data-testid="reset-submit-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}</Button>
         </form>
       )}
     </AuthShell>

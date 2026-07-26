@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Check, Clock, Tag, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtDate } from "@/lib/format";
+import { Button } from "@/components/base/Button";
+import { Heading } from "@/components/base/Heading";
 
 export default function BookingForm() {
   const navigate = useNavigate();
@@ -31,8 +33,8 @@ export default function BookingForm() {
 
   return (
     <div className="max-w-4xl">
-      <button onClick={() => navigate("/dashboard/bookings")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Bookings</button>
-      <h1 className="cr-form-h1">New Booking</h1>
+      <Button variant="bare" onClick={() => navigate("/dashboard/bookings")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Bookings</Button>
+      <Heading level={1} bare className="cr-form-h1">New Booking</Heading>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="cr-panel space-y-6 lg:col-span-3">
@@ -40,10 +42,10 @@ export default function BookingForm() {
             <label className="cr-label">1 · Select Lesson</label>
             <div className="space-y-2" data-testid="booking-lesson-list">
               {lessons.map((l) => (
-                <button key={l.id} data-testid={`booking-lesson-${l.id}`} onClick={() => setLessonId(l.id)} className={`cr-optbtn ${lessonId === l.id ? "is-sel" : ""}`}>
+                <Button variant="bare" key={l.id} data-testid={`booking-lesson-${l.id}`} onClick={() => setLessonId(l.id)} className={`cr-optbtn ${lessonId === l.id ? "is-sel" : ""}`}>
                   <span>{l.title}</span>
                   <span className="cr-opt-meta"><span className="flex items-center gap-1"><Tag className="h-3 w-3" />{l.category}</span><span className="flex items-center gap-1"><Clock className="h-3 w-3" />{l.duration}m</span></span>
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -57,18 +59,18 @@ export default function BookingForm() {
               <option value="">Choose a group</option>
               {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.students} students)</option>)}
             </select>
-            <button onClick={() => navigate("/dashboard/groups/new")} className="cr-mini-link mt-2 block">+ Create a new group</button>
+            <Button variant="bare" onClick={() => navigate("/dashboard/groups/new")} className="cr-mini-link mt-2 block">+ Create a new group</Button>
           </div>
         </div>
 
         <div className="cr-panel lg:col-span-2">
-          <h2 className="cr-widget-title">Summary</h2>
+          <Heading level={2} bare className="cr-widget-title">Summary</Heading>
           <div className="mt-5 space-y-3 text-sm">
             <div><p className="cr-label">Lesson</p><p className="cr-t">{lesson?.title || "—"}</p></div>
             <div><p className="cr-label">Schedule</p><p className="cr-t">{date ? `${fmtDate(date)} · ${time}` : "—"}</p></div>
             <div><p className="cr-label">Group</p><p className="cr-t flex items-center gap-1.5"><Users className="cr-muted-icon h-3.5 w-3.5" />{group ? `${group.name} (${group.students})` : "—"}</p></div>
           </div>
-          <button data-testid="booking-submit-btn" onClick={submit} className="cr-btn-block mt-6"><Check className="h-4 w-4" /> Create Booking</button>
+          <Button variant="bare" data-testid="booking-submit-btn" onClick={submit} className="cr-btn-block mt-6"><Check className="h-4 w-4" /> Create Booking</Button>
         </div>
       </div>
     </div>

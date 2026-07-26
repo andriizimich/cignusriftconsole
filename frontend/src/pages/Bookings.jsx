@@ -56,10 +56,10 @@ export default function Bookings() {
 
   const SortTh = ({ field, children, right }) => (
     <th className={`cr-th ${right ? "text-right" : ""}`}>
-      <button data-testid={`sort-${field}`} onClick={() => toggleSort(field)} className={`cr-th-sort ${sort.field === field ? "is-active" : ""} ${right ? "flex-row-reverse" : ""}`}>
+      <Button variant="bare" data-testid={`sort-${field}`} onClick={() => toggleSort(field)} className={`cr-th-sort ${sort.field === field ? "is-active" : ""} ${right ? "flex-row-reverse" : ""}`}>
         {children}
         {sort.field === field && (sort.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
-      </button>
+      </Button>
     </th>
   );
   const Td = ({ children, right, mono }) => <td className={`cr-td ${right ? "text-right" : ""} ${mono ? "cr-td-mono" : ""}`}>{children}</td>;

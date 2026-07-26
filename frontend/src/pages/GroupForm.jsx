@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Search, Check, Plus, UserPlus } from "lucide-react";
 import { api } from "@/lib/api";
+import { Button } from "@/components/base/Button";
+import { Heading } from "@/components/base/Heading";
 
 export default function GroupForm() {
   const { id } = useParams();
@@ -44,8 +46,8 @@ export default function GroupForm() {
 
   return (
     <div className="max-w-3xl">
-      <button onClick={() => navigate("/dashboard/groups")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Groups</button>
-      <h1 className="cr-form-h1">{editing ? "Edit Group" : "Create Group"}</h1>
+      <Button variant="bare" onClick={() => navigate("/dashboard/groups")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Groups</Button>
+      <Heading level={1} bare className="cr-form-h1">{editing ? "Edit Group" : "Create Group"}</Heading>
 
       <div className="cr-panel space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
@@ -56,7 +58,7 @@ export default function GroupForm() {
         <div>
           <div className="mb-2 flex items-center justify-between">
             <label className="cr-label mb-0">Students ({form.student_ids.length} selected)</label>
-            <button type="button" data-testid="toggle-add-student" onClick={() => setShowAdd((v) => !v)} className="cr-btn-sm"><UserPlus className="h-3.5 w-3.5" /> Add new student</button>
+            <Button variant="bare" type="button" data-testid="toggle-add-student" onClick={() => setShowAdd((v) => !v)} className="cr-btn-sm"><UserPlus className="h-3.5 w-3.5" /> Add new student</Button>
           </div>
 
           {showAdd && (
@@ -66,7 +68,7 @@ export default function GroupForm() {
               <input data-testid="new-student-division" className="cr-input" value={newStu.division} onChange={(e) => setNewStu({ ...newStu, division: e.target.value })} placeholder="Division" />
               <input data-testid="new-student-email" className="cr-input" value={newStu.email} onChange={(e) => setNewStu({ ...newStu, email: e.target.value })} placeholder="Email" />
               <input data-testid="new-student-phone" className="cr-input" value={newStu.phone} onChange={(e) => setNewStu({ ...newStu, phone: e.target.value })} placeholder="Phone" />
-              <button data-testid="save-new-student" onClick={addStudent} className="cr-btn-primary justify-center"><Plus className="h-4 w-4" /> Add to group</button>
+              <Button variant="bare" data-testid="save-new-student" onClick={addStudent} className="cr-btn-primary justify-center"><Plus className="h-4 w-4" /> Add to group</Button>
             </div>
           )}
 
@@ -75,19 +77,19 @@ export default function GroupForm() {
             {filtered.map((s) => {
               const sel = form.student_ids.includes(s.id);
               return (
-                <button key={s.id} data-testid={`student-option-${s.id}`} onClick={() => toggle(s.id)} className={`cr-checkitem ${sel ? "is-sel" : ""}`}>
+                <Button variant="bare" key={s.id} data-testid={`student-option-${s.id}`} onClick={() => toggle(s.id)} className={`cr-checkitem ${sel ? "is-sel" : ""}`}>
                   <span className={`cr-checkbox ${sel ? "is-sel" : ""}`}>{sel && <Check className="h-3 w-3 text-white" />}</span>
                   <span className="flex-1">{s.name}</span>
                   <span className="cr-checkitem-sub">{s.institution}</span>
-                </button>
+                </Button>
               );
             })}
           </div>
         </div>
 
         <div className="cr-divider-top flex gap-3">
-          <button data-testid="group-submit-btn" onClick={submit} className="cr-btn-primary">{editing ? "Save Changes" : "Create Group"}</button>
-          <button onClick={() => navigate("/dashboard/groups")} className="cr-btn-ghost">Cancel</button>
+          <Button variant="bare" data-testid="group-submit-btn" onClick={submit} className="cr-btn-primary">{editing ? "Save Changes" : "Create Group"}</Button>
+          <Button variant="bare" onClick={() => navigate("/dashboard/groups")} className="cr-btn-ghost">Cancel</Button>
         </div>
       </div>
     </div>

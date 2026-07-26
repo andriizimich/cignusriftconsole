@@ -33,15 +33,15 @@ export default function Register() {
   };
 
   const Tab = ({ value, icon: Icon, label }) => (
-    <button type="button" data-testid={`role-tab-${value}`} onClick={() => setRole(value)} className={`cr-roletab ${role === value ? "is-active" : ""}`}>
+    <Button variant="bare" type="button" data-testid={`role-tab-${value}`} onClick={() => setRole(value)} className={`cr-roletab ${role === value ? "is-active" : ""}`}>
       <Icon className="h-4 w-4" /> {label}
-    </button>
+    </Button>
   );
 
   return (
     <AuthShell>
       <p className="cr-auth-overline">Get started</p>
-      <h1 className="cr-auth-h1">Create account</h1>
+      <Heading level={1} bare className="cr-auth-h1">Create account</Heading>
       <p className="cr-auth-sub-6">Choose your role to continue.</p>
 
       <div className="mb-6 flex gap-3">
@@ -78,9 +78,9 @@ export default function Register() {
         </label>
 
         {err && <p data-testid="register-error" className="cr-error">{err}</p>}
-        <button data-testid="register-submit-button" disabled={busy} className="cr-btn-block">
+        <Button variant="bare" type="submit" data-testid="register-submit-button" disabled={busy} className="cr-btn-block">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Create ${role} account`}
-        </button>
+        </Button>
       </form>
 
       <div className="cr-or"><div className="cr-or-line" /><span className="cr-or-text">or</span><div className="cr-or-line" /></div>

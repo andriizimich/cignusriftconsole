@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fmtDate } from "@/lib/format";
+import { Button } from "@/components/base/Button";
+import { Heading } from "@/components/base/Heading";
 
 export default function GroupDetail() {
   const { id } = useParams();
@@ -19,10 +21,10 @@ export default function GroupDetail() {
 
   return (
     <div>
-      <button data-testid="group-back-btn" onClick={() => navigate("/dashboard/groups")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Groups</button>
+      <Button variant="bare" data-testid="group-back-btn" onClick={() => navigate("/dashboard/groups")} className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Groups</Button>
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="cr-detail-h1">{g.name}</h1>
+          <Heading level={1} bare className="cr-detail-h1">{g.name}</Heading>
           <div className="cr-detail-meta">
             <span className="cr-purple-text flex items-center gap-2"><Compass className="h-4 w-4" /> {g.direction}</span>
             <span className="flex items-center gap-2"><UserRound className="cr-muted-icon h-4 w-4" /> {g.teacher}</span>
@@ -31,8 +33,8 @@ export default function GroupDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button data-testid="group-edit-btn" onClick={() => navigate(`/dashboard/groups/${id}/edit`)} className="cr-btn-sm"><Pencil className="h-4 w-4" /> Edit</button>
-          <button data-testid="group-delete-btn" onClick={remove} className="cr-btn-sm cr-btn-sm-danger"><Trash2 className="h-4 w-4" /> Delete</button>
+          <Button variant="bare" data-testid="group-edit-btn" onClick={() => navigate(`/dashboard/groups/${id}/edit`)} className="cr-btn-sm"><Pencil className="h-4 w-4" /> Edit</Button>
+          <Button variant="bare" data-testid="group-delete-btn" onClick={remove} className="cr-btn-sm cr-btn-sm-danger"><Trash2 className="h-4 w-4" /> Delete</Button>
         </div>
       </div>
 
@@ -59,10 +61,10 @@ export default function GroupDetail() {
         <TabsContent value="schedule" className="mt-4">
           <div className="cr-widget overflow-hidden" data-testid="group-schedule-list">
             {g.bookings?.map((b) => (
-              <button key={b.id} onClick={() => navigate(`/dashboard/bookings/${b.id}`)} className="cr-row flex w-full items-center gap-4 border-b px-6 py-4 text-left last:border-0" style={{ borderColor: "var(--cr-border-hair)" }}>
+              <Button variant="bare" key={b.id} onClick={() => navigate(`/dashboard/bookings/${b.id}`)} className="cr-row flex w-full items-center gap-4 border-b px-6 py-4 text-left last:border-0" style={{ borderColor: "var(--cr-border-hair)" }}>
                 <div className="flex-1"><p className="cr-td-strong text-sm">{b.lesson_title}</p><p className="cr-tm text-xs">{fmtDate(b.date)} · {b.time}</p></div>
                 <StatusBadge status={b.status} />
-              </button>
+              </Button>
             ))}
             {(!g.bookings || g.bookings.length === 0) && <p className="cr-empty">No bookings for this group.</p>}
           </div>
