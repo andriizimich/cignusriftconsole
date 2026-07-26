@@ -38,16 +38,16 @@ export const LibraryPickerModal = ({ open, type, initialBlocks = [], onClose, on
   const count = Object.keys(selected).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose} data-testid="library-modal">
-      <div className="flex max-h-[88vh] w-full max-w-5xl flex-col rounded-xl border border-white/10 bg-[#0A0A0B]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-white/[0.07] px-6 py-4">
-          <div><h3 className="font-display text-lg tracking-tight">Content Library — {type === "theory" ? "Theory" : "Practice"}</h3><p className="text-xs text-zinc-500">{data.total} blocks available · {count} selected</p></div>
-          <button onClick={onClose} className="rounded-md p-2 text-zinc-500 hover:text-white"><X className="h-5 w-5" /></button>
+    <div className="cr-modal-overlay" onClick={onClose} data-testid="library-modal">
+      <div className="cr-modal-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="cr-modal-lg-head">
+          <div><h3 className="cr-modal-title">Content Library — {type === "theory" ? "Theory" : "Practice"}</h3><p className="cr-modal-sub">{data.total} blocks available · {count} selected</p></div>
+          <button onClick={onClose} className="cr-modal-x"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 border-b border-white/[0.07] px-6 py-4">
-          <div className="relative min-w-[200px] flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" /><input data-testid="modal-search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search library..." className="w-full rounded-md border border-white/10 bg-black/40 py-2 pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#0066FF]/50" /></div>
-          <select data-testid="modal-filter-category" value={category} onChange={(e) => setCategory(e.target.value)} className="rounded-md border border-white/10 bg-[#0A0A0B] px-3 py-2 text-sm text-zinc-300 outline-none focus:border-[#0066FF]/50">
+        <div className="cr-modal-lg-head flex-wrap gap-3">
+          <div className="cr-search"><Search className="cr-search-icon" /><input data-testid="modal-search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search library..." className="cr-search-input" /></div>
+          <select data-testid="modal-filter-category" value={category} onChange={(e) => setCategory(e.target.value)} className="cr-select">
             <option value="">All categories</option>
             {Object.entries(cats).map(([grp, items]) => <optgroup key={grp} label={grp}>{items.map((c) => <option key={c} value={c}>{c}</option>)}</optgroup>)}
           </select>
@@ -58,29 +58,29 @@ export const LibraryPickerModal = ({ open, type, initialBlocks = [], onClose, on
             {data.items.map((b) => {
               const sel = Boolean(selected[b.id]);
               return (
-                <button key={b.id} type="button" data-testid={`modal-block-${b.id}`} onClick={() => toggle(b)} className={`relative overflow-hidden rounded-md border text-left transition-colors ${sel ? "border-[#0066FF]" : "border-white/[0.07] hover:border-white/20"}`}>
+                <button key={b.id} type="button" data-testid={`modal-block-${b.id}`} onClick={() => toggle(b)} className={`cr-libtile ${sel ? "is-sel" : ""}`}>
                   <div className="relative aspect-video">
                     <img src={b.thumbnail} alt={b.title} loading="lazy" className="h-full w-full object-cover" />
-                    <div className="absolute inset-0 bg-black/30" />
-                    <span className="absolute left-1.5 top-1.5 max-w-[85%] truncate rounded-sm bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white backdrop-blur-sm">{b.category}</span>
-                    {sel && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0066FF]"><Check className="h-3 w-3 text-white" /></span>}
+                    <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.3)" }} />
+                    <span className="cr-libtile-badge">{b.category}</span>
+                    {sel && <span className="cr-libtile-check"><Check className="h-3 w-3 text-white" /></span>}
                   </div>
-                  <div className="p-2"><p className="truncate text-[11px] text-white">{b.title}</p><p className="text-[10px] text-zinc-500">{blockDuration(b)}</p></div>
+                  <div className="cr-libtile-body"><p className="cr-libtile-title">{b.title}</p><p className="cr-libtile-meta">{blockDuration(b)}</p></div>
                 </button>
               );
             })}
           </div>
-          {data.items.length === 0 && <p className="py-6 text-center text-sm text-zinc-500">No content matches your filters.</p>}
+          {data.items.length === 0 && <p className="cr-empty text-center">No content matches your filters.</p>}
           <div className="mt-6 flex items-center justify-center gap-4">
-            <button data-testid="modal-prev" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="inline-flex items-center gap-1 rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-400 hover:text-white disabled:opacity-30"><ChevronLeft className="h-4 w-4" /> Prev</button>
-            <span className="text-sm text-zinc-500">Page {page + 1} / {totalPages}</span>
-            <button data-testid="modal-next" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="inline-flex items-center gap-1 rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-400 hover:text-white disabled:opacity-30">Next <ChevronRight className="h-4 w-4" /></button>
+            <button data-testid="modal-prev" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="cr-pager-btn"><ChevronLeft className="h-4 w-4" /> Prev</button>
+            <span className="cr-pager-info">Page {page + 1} / {totalPages}</span>
+            <button data-testid="modal-next" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="cr-pager-btn">Next <ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-white/[0.07] px-6 py-4">
-          <button onClick={onClose} className="rounded-md border border-white/15 px-5 py-2.5 text-sm text-zinc-300 hover:text-white">Cancel</button>
-          <button data-testid="modal-confirm" onClick={() => { onConfirm(Object.values(selected)); onClose(); }} className="rounded-md bg-[#0066FF] px-5 py-2.5 text-sm font-medium text-white active:scale-95">Add {count} block{count === 1 ? "" : "s"}</button>
+        <div className="cr-modal-lg-head justify-end gap-3" style={{ borderTop: "1px solid var(--cr-border)", borderBottom: "none" }}>
+          <button onClick={onClose} className="cr-btn-ghost">Cancel</button>
+          <button data-testid="modal-confirm" onClick={() => { onConfirm(Object.values(selected)); onClose(); }} className="cr-btn-primary">Add {count} block{count === 1 ? "" : "s"}</button>
         </div>
       </div>
     </div>

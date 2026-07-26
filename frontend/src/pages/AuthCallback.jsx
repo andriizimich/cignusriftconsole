@@ -40,10 +40,10 @@ export default function AuthCallback() {
   }, [navigate, setUser]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+    <div className="cr-loader-screen">
       <div className="text-center" data-testid="auth-callback-loading">
-        <div className="h-10 w-10 mx-auto rounded-full border-2 border-[#0066FF] border-t-transparent animate-spin" />
-        <p className="mt-4 text-zinc-500 text-xs uppercase tracking-[0.3em]">Establishing link</p>
+        <div className="cr-spinner" />
+        <p className="cr-loader-text">Establishing link</p>
       </div>
     </div>
   );

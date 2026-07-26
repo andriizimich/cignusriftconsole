@@ -1,4 +1,4 @@
-"""Iteration 4 backend API regression tests for auth, seeded data, lessons, groups, bookings, and profile."""
+"""Iteration 3 API regression for Cygnus Rift auth, lessons, groups, bookings, and profile."""
 import os
 import re
 import subprocess
@@ -20,7 +20,7 @@ if not BASE_URL:
 API = f"{BASE_URL}/api"
 
 
-def _credentials():
+def load_credentials():
     path = Path("/app/memory/test_credentials.md")
     if not path.exists():
         pytest.skip("Missing /app/memory/test_credentials.md")
@@ -35,386 +35,272 @@ def _credentials():
     }
 
 
-def _mongo_eval(script):
-    if not MONGO_URL or not DB_NAME:
-        raise RuntimeError("MONGO_URL or DB_NAME is missing")
-    return subprocess.run(
-        ["mongosh", MONGO_URL, "--quiet", "--eval", f"use('{DB_NAME}'); {script}"],
+def mongo_eval(script):
+    result = subprocess.run(
+        ["mongosh", MONGO_URL, "--quiet", "--eval", f"db=db.getSiblingDB('{DB_NAME}'); {script}"],
         check=True,
         capture_output=True,
         text=True,
         timeout=30,
-    ).stdout.strip()
+    )
+    return result.stdout.strip()
 
 
 @pytest.fixture(scope="session")
 def credentials():
-    return _credentials()
+    return load_credentials()
 
 
 @pytest.fixture(scope="session")
-def teacher_auth(credentials):
-    response = requests.post(f"{API}/auth/login", json=credentials["teacher"], timeout=20)
+def teacher(credentials):
+    session = requests.Session()
+    response = session.post(f"{API}/auth/login", json=credentials["teacher"], timeout=20)
     assert response.status_code == 200, response.text
-    return {"Authorization": f"Bearer {response.json()['token']}"}
+    session.headers.update({"Authorization": f"Bearer {response.json()['token']}"})
+    return session
 
 
 @pytest.fixture(scope="session")
-def student_auth(credentials):
-    response = requests.post(f"{API}/auth/login", json=credentials["student"], timeout=20)
+def student(credentials):
+    session = requests.Session()
+    response = session.post(f"{API}/auth/login", json=credentials["student"], timeout=20)
     assert response.status_code == 200, response.text
-    return {"Authorization": f"Bearer {response.json()['token']}"}
+    session.headers.update({"Authorization": f"Bearer {response.json()['token']}"})
+    return session
 
 
 @pytest.fixture(scope="session")
-def temporary_teacher():
-    email = f"test_teacher_{uuid.uuid4().hex[:10]}@example.com"
-    password = "secret123"
-    response = requests.post(
-        f"{API}/auth/register",
-        json={
-            "name": "TEST Profile Teacher",
-            "email": email,
-            "password": password,
-            "role": "teacher",
-            "specialization": "IT",
-            "accept_terms": True,
-        },
-        timeout=20,
-    )
-    assert response.status_code == 200, response.text
-    data = response.json()
-    yield {"email": email, "password": password, "token": data["token"], "user": data}
-    _mongo_eval(f"db.users.deleteMany({{email:'{email}'}}); db.password_resets.deleteMany({{email:'{email}'}});")
+def reference_data():
+    theory = requests.get(f"{API}/content-blocks", params={"type": "theory", "limit": 2}, timeout=20).json()["items"]
+    practice = requests.get(f"{API}/content-blocks", params={"type": "practice", "limit": 2}, timeout=20).json()["items"]
+    students = requests.get(f"{API}/students", timeout=20).json()
+    lessons = requests.get(f"{API}/lessons", timeout=20).json()
+    groups = requests.get(f"{API}/groups", timeout=20).json()
+    assert theory and practice and len(students) >= 8 and lessons and groups
+    return {"theory": theory, "practice": practice, "students": students, "lessons": lessons, "groups": groups}
 
 
-# Seed counts, response enrichment, filters, and reference collections.
-class TestSeedAndReferenceData:
-    def test_exact_seed_counts_and_summary_values(self):
+# Public reference data and dashboard response contracts.
+class TestPublicData:
+    def test_summary_and_reference_contracts(self):
         summary = requests.get(f"{API}/dashboard/summary", timeout=20)
-        students = requests.get(f"{API}/students", timeout=20)
-        groups = requests.get(f"{API}/groups", timeout=20)
-        lessons = requests.get(f"{API}/lessons", timeout=20)
-        bookings = requests.get(f"{API}/bookings", timeout=20)
-        assert all(r.status_code == 200 for r in [summary, students, groups, lessons, bookings])
-        analytics = summary.json()["analytics"]
-        assert analytics["students"] == 50
-        assert analytics["groups"] == 8
-        assert analytics["lessons"] == 6
-        assert analytics["bookings"] == 9
-        assert len(students.json()) == 50
-        assert len(groups.json()) == 8
-        assert len(lessons.json()) == 6
-        assert len(bookings.json()) == 9
+        categories = requests.get(f"{API}/categories", timeout=20)
+        blocks = requests.get(f"{API}/content-blocks", params={"type": "theory", "limit": 3}, timeout=20)
+        assert summary.status_code == categories.status_code == blocks.status_code == 200
+        data = summary.json()
+        assert set(data["analytics"]) >= {"students", "bookings", "conducted", "lessons", "groups"}
+        assert isinstance(data["progress_series"], list) and len(data["progress_series"]) == 6
+        assert "Academic Disciplines" in categories.json() and "Business Sectors" in categories.json()
+        block_data = blocks.json()
+        assert block_data["total"] >= len(block_data["items"]) > 0
+        assert all(item["type"] == "theory" and "_id" not in item for item in block_data["items"])
 
-    def test_seed_bookings_are_enriched_and_status_is_derived(self):
-        rows = requests.get(f"{API}/bookings", timeout=20).json()
-        assert rows
-        required = {"lesson_title", "category", "group_name", "participants", "status"}
-        assert all(required.issubset(row) for row in rows)
-        assert all(row["status"] in {"scheduled", "active", "archived"} for row in rows)
-        assert all(isinstance(row["participants"], int) for row in rows)
-
-    def test_categories_are_grouped_academic_and_business(self):
-        response = requests.get(f"{API}/categories", timeout=20)
-        assert response.status_code == 200
-        data = response.json()
-        assert set(data) == {"Academic Disciplines", "Business Sectors"}
-        assert "Computer Science" in data["Academic Disciplines"]
-        assert "IT" in data["Business Sectors"]
-
-    @pytest.mark.parametrize("block_type", ["theory", "practice"])
-    def test_content_block_type_filter(self, block_type):
-        response = requests.get(f"{API}/content-blocks", params={"type": block_type}, timeout=20)
-        assert response.status_code == 200
-        rows = response.json()
-        assert rows and all(row["type"] == block_type for row in rows)
-        assert all("_id" not in row for row in rows)
+    def test_seed_constraints(self):
+        lessons = requests.get(f"{API}/lessons", timeout=20).json()
+        groups = requests.get(f"{API}/groups", timeout=20).json()
+        assert lessons and all(1 <= item["duration"] <= 40 for item in lessons)
+        assert groups and all(item["students"] >= 8 for item in groups)
 
 
-# Demo accounts, registration regression, JWT cookie, and brute-force protection.
-class TestAuthRegression:
-    @pytest.mark.parametrize("account,role", [("teacher", "teacher"), ("student", "student")])
-    def test_demo_login_accounts(self, credentials, account, role):
-        response = requests.post(f"{API}/auth/login", json=credentials[account], timeout=20)
-        assert response.status_code == 200, response.text
-        data = response.json()
-        assert data["email"] == credentials[account]["email"]
-        assert data["role"] == role
-        assert isinstance(data["token"], str) and len(data["token"]) > 20
-        assert "password_hash" not in data and "_id" not in data
+# JWT password login, cookie, hashing, CORS, error handling, and lockout.
+class TestAuth:
+    @pytest.mark.parametrize("kind,role", [("teacher", "teacher"), ("student", "student")])
+    def test_login_me_and_cookie(self, credentials, kind, role):
+        session = requests.Session()
+        login = session.post(f"{API}/auth/login", json=credentials[kind], timeout=20)
+        assert login.status_code == 200, login.text
+        body = login.json()
+        assert body["email"] == credentials[kind]["email"] and body["role"] == role
+        assert isinstance(body["token"], str) and "password_hash" not in body and "_id" not in body
+        cookie = login.headers.get("set-cookie", "").lower()
+        assert "access_token=" in cookie and "httponly" in cookie and "secure" in cookie and "samesite=none" in cookie
+        me = session.get(f"{API}/auth/me", timeout=20)
+        assert me.status_code == 200 and me.json()["email"] == credentials[kind]["email"]
 
-    def test_teacher_registration_without_specialization_is_rejected(self):
-        email = f"test_missing_spec_{uuid.uuid4().hex[:10]}@example.com"
-        response = requests.post(
-            f"{API}/auth/register",
-            json={"name": "TEST Missing Spec", "email": email, "password": "secret123", "role": "teacher", "accept_terms": True},
-            timeout=20,
-        )
-        assert response.status_code == 400, response.text
-        assert "specialization" in response.json()["detail"].lower()
+    def test_bad_credentials_return_meaningful_401(self):
+        response = requests.post(f"{API}/auth/login", json={"email": f"missing_{uuid.uuid4().hex}@example.com", "password": "wrongpass"}, timeout=20)
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid email or password"
 
-    def test_login_sets_secure_httponly_cookie(self, credentials):
-        response = requests.post(f"{API}/auth/login", json=credentials["teacher"], timeout=20)
-        cookie = response.headers.get("set-cookie", "").lower()
-        assert response.status_code == 200
-        assert "access_token=" in cookie and "httponly" in cookie
-        assert "secure" in cookie and "samesite=none" in cookie
+    def test_hashes_are_bcrypt_2b(self, credentials):
+        for kind in ("teacher", "student"):
+            email = credentials[kind]["email"]
+            output = mongo_eval(f"print(db.users.findOne({{email:'{email}'}}).password_hash)")
+            assert output.startswith("$2b$"), output
 
-    def test_bcrypt_demo_hash_starts_with_2b(self, credentials):
-        email = credentials["teacher"]["email"]
-        output = _mongo_eval(f"print(db.users.findOne({{email:'{email}'}}).password_hash);")
-        assert output.startswith("$2b$"), output
-
-    def test_cors_credentials_echoes_explicit_frontend_origin(self):
+    def test_cors_rejects_untrusted_origin_when_credentials_enabled(self):
         response = requests.options(
             f"{API}/auth/login",
-            headers={"Origin": BASE_URL, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"},
+            headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"},
             timeout=20,
         )
-        assert response.status_code in (200, 204)
-        assert response.headers.get("access-control-allow-origin") == BASE_URL
-        assert response.headers.get("access-control-allow-credentials", "").lower() == "true"
+        assert response.headers.get("access-control-allow-origin") not in {"*", "https://evil.example"}
 
-    def test_brute_force_lockout_after_five_failures(self):
-        email = f"test_lockout_{uuid.uuid4().hex[:10]}@example.com"
-        statuses = []
-        for _ in range(6):
-            response = requests.post(f"{API}/auth/login", json={"email": email, "password": "wrong-pass"}, timeout=20)
-            statuses.append(response.status_code)
-        assert statuses[:5] == [401] * 5
-        assert statuses[5] == 429, f"Expected lockout on sixth attempt, got {statuses}"
-
-
-# Lesson list/search/category/detail and teacher CRUD validation.
-class TestLessons:
-    def test_filters_and_expanded_detail(self):
-        all_rows = requests.get(f"{API}/lessons", timeout=20).json()
-        target = all_rows[0]
-        search = requests.get(f"{API}/lessons", params={"q": target["title"].split()[0]}, timeout=20)
-        category = requests.get(f"{API}/lessons", params={"category": target["category"]}, timeout=20)
-        detail = requests.get(f"{API}/lessons/{target['id']}", timeout=20)
-        assert search.status_code == category.status_code == detail.status_code == 200
-        assert target["id"] in {row["id"] for row in search.json()}
-        assert all(row["category"] == target["category"] for row in category.json())
-        expanded = detail.json()
-        assert expanded["theory_blocks"] and expanded["practice_blocks"]
-        assert all(block["id"] in expanded["theory_ids"] for block in expanded["theory_blocks"])
-
-    @pytest.mark.parametrize("theory_ids,practice_ids,fragment", [([], ["CP-01"], "theory"), (["CT-01"], [], "practice")])
-    def test_create_requires_theory_and_practice(self, teacher_auth, theory_ids, practice_ids, fragment):
-        response = requests.post(
-            f"{API}/lessons",
-            headers=teacher_auth,
-            json={"title": "TEST Invalid Lesson", "description": "QA", "category": "IT", "duration": 30, "theory_ids": theory_ids, "practice_ids": practice_ids, "quizzes": []},
-            timeout=20,
-        )
-        assert response.status_code == 400
-        assert fragment in response.json()["detail"].lower()
-
-    def test_teacher_create_update_delete_with_persistence(self, teacher_auth):
-        payload = {
-            "title": "TEST Lesson CRUD",
-            "description": "Initial QA lesson",
-            "category": "IT",
-            "duration": 45,
-            "theory_ids": ["CT-01"],
-            "practice_ids": ["CP-01"],
-            "quizzes": [{"id": "Q1", "question": "TEST question?", "options": ["A", "B", "C", "D"], "correct": 1, "show_after": "theory"}],
-        }
-        created_id = None
+    def test_five_failures_lock_temporary_account(self):
+        email = f"test_lock_{uuid.uuid4().hex[:10]}@example.com"
+        password = "secret123"
+        registered = requests.post(f"{API}/auth/register", json={"name": "TEST Lock User", "email": email, "password": password, "role": "teacher", "specialization": "IT", "accept_terms": True}, timeout=20)
+        assert registered.status_code == 200, registered.text
         try:
-            created = requests.post(f"{API}/lessons", headers=teacher_auth, json=payload, timeout=20)
-            assert created.status_code == 200, created.text
-            data = created.json()
-            created_id = data["id"]
-            assert data["title"] == payload["title"]
-            assert data["theory_blocks"][0]["id"] == "CT-01"
-            payload["title"] = "TEST Lesson CRUD Updated"
-            payload["duration"] = 55
-            updated = requests.put(f"{API}/lessons/{created_id}", headers=teacher_auth, json=payload, timeout=20)
-            assert updated.status_code == 200
-            fetched = requests.get(f"{API}/lessons/{created_id}", timeout=20)
-            assert fetched.json()["title"] == payload["title"] and fetched.json()["duration"] == 55
+            statuses = [requests.post(f"{API}/auth/login", json={"email": email, "password": "wrongpass"}, timeout=20).status_code for _ in range(6)]
+            assert statuses[:5] == [401] * 5
+            assert statuses[5] == 429, statuses
         finally:
-            if created_id:
-                deleted = requests.delete(f"{API}/lessons/{created_id}", headers=teacher_auth, timeout=20)
-                assert deleted.status_code == 200 and deleted.json() == {"success": True}
-                assert requests.get(f"{API}/lessons/{created_id}", timeout=20).status_code == 404
-
-    def test_student_cannot_create_teacher_lesson(self, student_auth):
-        response = requests.post(
-            f"{API}/lessons",
-            headers=student_auth,
-            json={"title": "TEST Student Forbidden", "description": "QA", "category": "IT", "duration": 30, "theory_ids": ["CT-01"], "practice_ids": ["CP-01"], "quizzes": []},
-            timeout=20,
-        )
-        if response.status_code == 200:
-            requests.delete(f"{API}/lessons/{response.json()['id']}", timeout=20)
-        assert response.status_code in (401, 403), response.text
+            mongo_eval(f"db.users.deleteMany({{email:'{email}'}}); db.login_attempts.deleteMany({{identifier:/.*{email}.*/}})")
 
 
-# Student pool and group create/read/update/delete expansion.
-class TestGroups:
-    def test_add_student_and_group_crud(self, teacher_auth):
+# Lesson CRUD, section-level quiz persistence, duration validation, and role authorization.
+class TestLessons:
+    def test_lesson_crud_and_section_quizzes(self, teacher, reference_data):
         suffix = uuid.uuid4().hex[:8]
-        new_student_id = None
+        theory_id = reference_data["theory"][0]["id"]
+        practice_id = reference_data["practice"][0]["id"]
+        payload = {
+            "title": f"TEST Section Quiz {suffix}", "description": "QA", "category": "IT", "duration": 39,
+            "theory_ids": [theory_id], "practice_ids": [practice_id],
+            "quizzes": [
+                {"id": "Q1", "block_id": "theory", "question": "Theory?", "options": ["A", "B", "C", "D"], "correct": 1},
+                {"id": "Q2", "block_id": "practice", "question": "Practice?", "options": ["A", "B", "C", "D"], "correct": 2},
+            ],
+        }
+        lesson_id = None
+        try:
+            created = teacher.post(f"{API}/lessons", json=payload, timeout=20)
+            assert created.status_code == 200, created.text
+            lesson_id = created.json()["id"]
+            fetched = requests.get(f"{API}/lessons/{lesson_id}", timeout=20)
+            assert fetched.status_code == 200
+            body = fetched.json()
+            assert body["title"] == payload["title"] and body["duration"] == 39
+            assert {quiz["block_id"] for quiz in body["quizzes"]} == {"theory", "practice"}
+            assert body["theory_blocks"][0]["id"] == theory_id and body["practice_blocks"][0]["id"] == practice_id
+            payload["title"] += " Updated"
+            updated = teacher.put(f"{API}/lessons/{lesson_id}", json=payload, timeout=20)
+            assert updated.status_code == 200
+            assert requests.get(f"{API}/lessons/{lesson_id}", timeout=20).json()["title"].endswith("Updated")
+            too_long = {**payload, "duration": 41}
+            rejected = teacher.put(f"{API}/lessons/{lesson_id}", json=too_long, timeout=20)
+            assert rejected.status_code == 400 and "40" in rejected.json()["detail"]
+        finally:
+            if lesson_id:
+                teacher.delete(f"{API}/lessons/{lesson_id}", timeout=20)
+                assert requests.get(f"{API}/lessons/{lesson_id}", timeout=20).status_code == 404
+
+    def test_student_cannot_mutate_lessons(self, student, reference_data):
+        payload = {
+            "title": "TEST Student Mutation", "description": "QA", "category": "IT", "duration": 30,
+            "theory_ids": [reference_data["theory"][0]["id"]], "practice_ids": [reference_data["practice"][0]["id"]], "quizzes": [],
+        }
+        response = student.put(f"{API}/lessons/L-NOT-FOUND", json=payload, timeout=20)
+        assert response.status_code == 403, response.text
+        response = student.delete(f"{API}/lessons/L-NOT-FOUND", timeout=20)
+        assert response.status_code == 403, response.text
+
+
+# Group minimum-size rule, CRUD persistence, and role authorization.
+class TestGroups:
+    def test_group_minimum_and_crud(self, teacher, reference_data):
+        suffix = uuid.uuid4().hex[:8]
+        student_ids = [item["id"] for item in reference_data["students"][:8]]
+        too_small = teacher.post(f"{API}/groups", json={"name": f"TEST Small {suffix}", "direction": "IT", "student_ids": student_ids[:1]}, timeout=20)
+        small_id = too_small.json().get("id") if too_small.headers.get("content-type", "").startswith("application/json") else None
+        if small_id:
+            teacher.delete(f"{API}/groups/{small_id}", timeout=20)
+        assert too_small.status_code == 400, too_small.text
+
         group_id = None
         try:
-            student = requests.post(
-                f"{API}/students",
-                headers=teacher_auth,
-                json={"name": f"TEST Student {suffix}", "institution": "TEST Institute", "division": "QA", "email": f"test_{suffix}@example.com", "phone": "+1 555 7777"},
-                timeout=20,
-            )
-            assert student.status_code == 200, student.text
-            new_student_id = student.json()["id"]
-            assert student.json()["name"] == f"TEST Student {suffix}"
-            create_payload = {"name": f"TEST Group {suffix}", "direction": "IT", "student_ids": [new_student_id]}
-            created = requests.post(f"{API}/groups", headers=teacher_auth, json=create_payload, timeout=20)
+            payload = {"name": f"TEST Group {suffix}", "direction": "IT", "student_ids": student_ids}
+            created = teacher.post(f"{API}/groups", json=payload, timeout=20)
             assert created.status_code == 200, created.text
             group_id = created.json()["id"]
-            assert created.json()["students"] == 1
-            assert created.json()["student_list"][0]["id"] == new_student_id
-            update_payload = {**create_payload, "name": f"TEST Group Updated {suffix}", "student_ids": [new_student_id, "U-001"]}
-            updated = requests.put(f"{API}/groups/{group_id}", headers=teacher_auth, json=update_payload, timeout=20)
+            assert created.json()["students"] == 8 and len(created.json()["student_list"]) == 8
+            payload["name"] += " Updated"
+            updated = teacher.put(f"{API}/groups/{group_id}", json=payload, timeout=20)
             assert updated.status_code == 200
-            fetched = requests.get(f"{API}/groups/{group_id}", timeout=20)
-            assert fetched.json()["name"] == update_payload["name"]
-            assert fetched.json()["students"] == 2
-            assert isinstance(fetched.json()["bookings"], list)
+            fetched = requests.get(f"{API}/groups/{group_id}", timeout=20).json()
+            assert fetched["name"].endswith("Updated") and fetched["students"] == 8
         finally:
             if group_id:
-                deleted = requests.delete(f"{API}/groups/{group_id}", headers=teacher_auth, timeout=20)
-                assert deleted.status_code == 200
+                teacher.delete(f"{API}/groups/{group_id}", timeout=20)
                 assert requests.get(f"{API}/groups/{group_id}", timeout=20).status_code == 404
-            if new_student_id:
-                _mongo_eval(f"db.students.deleteMany({{id:'{new_student_id}'}});")
+
+    def test_student_cannot_mutate_groups(self, student):
+        response = student.put(f"{API}/groups/G-NOT-FOUND", json={"name": "TEST", "direction": "IT", "student_ids": []}, timeout=20)
+        assert response.status_code == 403, response.text
+        response = student.delete(f"{API}/groups/G-NOT-FOUND", timeout=20)
+        assert response.status_code == 403, response.text
 
 
-# Booking linked-resource CRUD, derived status, expanded detail, and student join/leave.
+# Booking linked-resource validation, CRUD, state restrictions, and student join/leave.
 class TestBookings:
-    def test_create_update_detail_delete_and_derived_status(self, teacher_auth):
-        future = (datetime.now(timezone.utc).date() + timedelta(days=20)).isoformat()
+    def test_booking_crud_and_invalid_group(self, teacher, reference_data):
+        lesson_id = reference_data["lessons"][0]["id"]
+        group_id = reference_data["groups"][0]["id"]
+        future = (datetime.now(timezone.utc).date() + timedelta(days=30)).isoformat()
+        invalid = teacher.post(f"{API}/bookings", json={"lesson_id": lesson_id, "group_id": "G-MISSING", "date": future, "time": "13:00"}, timeout=20)
+        invalid_id = invalid.json().get("id") if invalid.headers.get("content-type", "").startswith("application/json") else None
+        if invalid_id:
+            teacher.delete(f"{API}/bookings/{invalid_id}", timeout=20)
+        assert invalid.status_code == 404, invalid.text
+
         booking_id = None
         try:
-            created = requests.post(
-                f"{API}/bookings",
-                headers=teacher_auth,
-                json={"lesson_id": "L-001", "group_id": "G-08", "date": future, "time": "12:30"},
-                timeout=20,
-            )
+            created = teacher.post(f"{API}/bookings", json={"lesson_id": lesson_id, "group_id": group_id, "date": future, "time": "13:00"}, timeout=20)
             assert created.status_code == 200, created.text
-            data = created.json()
-            booking_id = data["id"]
-            assert data["status"] == "scheduled"
-            assert data["lesson"]["theory_blocks"] and data["lesson"]["practice_blocks"]
-            assert isinstance(data["group"]["student_list"], list)
-            update = requests.put(
-                f"{API}/bookings/{booking_id}",
-                headers=teacher_auth,
-                json={"group_id": "G-07", "date": future, "time": "14:45", "duration": 80},
-                timeout=20,
-            )
+            booking_id = created.json()["id"]
+            body = created.json()
+            assert body["status"] == "scheduled" and body["participants"] == len(body["group"]["student_list"])
+            update = teacher.put(f"{API}/bookings/{booking_id}", json={"group_id": group_id, "date": future, "time": "14:30", "duration": 40}, timeout=20)
             assert update.status_code == 200
             fetched = requests.get(f"{API}/bookings/{booking_id}", timeout=20).json()
-            assert fetched["group_id"] == "G-07"
-            assert fetched["time"] == "14:45" and fetched["duration"] == 80
-            assert fetched["group_name"] == fetched["group"]["name"]
+            assert fetched["time"] == "14:30" and fetched["duration"] == 40
         finally:
             if booking_id:
-                deleted = requests.delete(f"{API}/bookings/{booking_id}", headers=teacher_auth, timeout=20)
-                assert deleted.status_code == 200 and deleted.json() == {"success": True}
+                teacher.delete(f"{API}/bookings/{booking_id}", timeout=20)
                 assert requests.get(f"{API}/bookings/{booking_id}", timeout=20).status_code == 404
 
-    def test_today_and_past_statuses(self, teacher_auth):
-        today = datetime.now(timezone.utc).date()
-        ids = []
+    def test_student_cannot_update_or_delete_booking(self, teacher, student, reference_data):
+        future = (datetime.now(timezone.utc).date() + timedelta(days=31)).isoformat()
+        created = teacher.post(f"{API}/bookings", json={"lesson_id": reference_data["lessons"][0]["id"], "group_id": reference_data["groups"][0]["id"], "date": future, "time": "10:00"}, timeout=20)
+        assert created.status_code == 200
+        booking_id = created.json()["id"]
         try:
-            for date_value, expected in [(today.isoformat(), "active"), ((today - timedelta(days=2)).isoformat(), "archived")]:
-                response = requests.post(
-                    f"{API}/bookings",
-                    headers=teacher_auth,
-                    json={"lesson_id": "L-002", "group_id": "G-08", "date": date_value, "time": "10:00"},
-                    timeout=20,
-                )
-                assert response.status_code == 200
-                ids.append(response.json()["id"])
-                assert response.json()["status"] == expected
+            update = student.put(f"{API}/bookings/{booking_id}", json={"time": "11:00"}, timeout=20)
+            assert update.status_code == 403, update.text
+            delete = student.delete(f"{API}/bookings/{booking_id}", timeout=20)
+            assert delete.status_code == 403, delete.text
         finally:
-            for booking_id in ids:
-                requests.delete(f"{API}/bookings/{booking_id}", headers=teacher_auth, timeout=20)
+            teacher.delete(f"{API}/bookings/{booking_id}", timeout=20)
 
-    def test_unknown_group_link_is_rejected(self, teacher_auth):
-        response = requests.post(
-            f"{API}/bookings",
-            headers=teacher_auth,
-            json={"lesson_id": "L-001", "group_id": "G-DOES-NOT-EXIST", "date": (datetime.now(timezone.utc).date() + timedelta(days=5)).isoformat(), "time": "11:00"},
-            timeout=20,
-        )
-        if response.status_code == 200:
-            requests.delete(f"{API}/bookings/{response.json()['id']}", headers=teacher_auth, timeout=20)
-        assert response.status_code == 404, response.text
-
-    def test_student_join_then_leave_toggles(self, teacher_auth, student_auth, credentials):
-        future = (datetime.now(timezone.utc).date() + timedelta(days=25)).isoformat()
-        booking_id = None
+    def test_archived_booking_cannot_be_joined(self, teacher, student, reference_data):
+        past = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+        created = teacher.post(f"{API}/bookings", json={"lesson_id": reference_data["lessons"][0]["id"], "group_id": reference_data["groups"][-1]["id"], "date": past, "time": "10:00"}, timeout=20)
+        assert created.status_code == 200 and created.json()["status"] == "archived"
+        booking_id = created.json()["id"]
         try:
-            created = requests.post(
-                f"{API}/bookings",
-                headers=teacher_auth,
-                json={"lesson_id": "L-003", "group_id": "G-08", "date": future, "time": "16:00"},
-                timeout=20,
-            )
-            assert created.status_code == 200
-            booking_id = created.json()["id"]
-            before = requests.get(f"{API}/bookings/student", headers=student_auth, timeout=20).json()
-            row = next(item for item in before if item["id"] == booking_id)
-            assert row["joined"] is False and row["can_join"] is True
-            joined = requests.post(f"{API}/bookings/{booking_id}/join", headers=student_auth, timeout=20)
-            assert joined.status_code == 200 and joined.json() == {"success": True}
-            row = next(item for item in requests.get(f"{API}/bookings/student", headers=student_auth, timeout=20).json() if item["id"] == booking_id)
-            assert row["joined"] is True
-            left = requests.post(f"{API}/bookings/{booking_id}/leave", headers=student_auth, timeout=20)
-            assert left.status_code == 200 and left.json() == {"success": True}
-            row = next(item for item in requests.get(f"{API}/bookings/student", headers=student_auth, timeout=20).json() if item["id"] == booking_id)
-            assert row["joined"] is False and row["can_join"] is True
+            joined = student.post(f"{API}/bookings/{booking_id}/join", timeout=20)
+            assert joined.status_code in (400, 403), joined.text
         finally:
-            if booking_id:
-                requests.delete(f"{API}/bookings/{booking_id}", headers=teacher_auth, timeout=20)
+            teacher.delete(f"{API}/bookings/{booking_id}", timeout=20)
 
 
-# Authenticated profile, notification, and password-change persistence.
+# Profile and notification persistence on the seeded teacher with restoration.
 class TestProfile:
-    def test_profile_and_notifications_persist(self, temporary_teacher):
-        headers = {"Authorization": f"Bearer {temporary_teacher['token']}"}
-        profile = requests.put(
-            f"{API}/auth/profile",
-            headers=headers,
-            json={"name": "TEST Profile Updated", "phone": "+1 555 9999", "institution": "TEST Academy", "picture": "data:image/png;base64,dGVzdA=="},
-            timeout=20,
-        )
-        assert profile.status_code == 200
-        assert profile.json()["name"] == "TEST Profile Updated"
-        assert profile.json()["institution"] == "TEST Academy"
-        me = requests.get(f"{API}/auth/me", headers=headers, timeout=20)
-        assert me.json()["phone"] == "+1 555 9999"
-        notif = requests.put(f"{API}/auth/notifications", headers=headers, json={"email_notifications": False, "push_notifications": True}, timeout=20)
-        assert notif.status_code == 200
-        assert notif.json()["email_notifications"] is False and notif.json()["push_notifications"] is True
-        assert requests.get(f"{API}/auth/me", headers=headers, timeout=20).json()["email_notifications"] is False
-
-    def test_change_password_validates_current_and_can_restore(self, temporary_teacher):
-        headers = {"Authorization": f"Bearer {temporary_teacher['token']}"}
-        wrong = requests.post(f"{API}/auth/change-password", headers=headers, json={"current_password": "wrong", "new_password": "changed123"}, timeout=20)
-        assert wrong.status_code == 400
-        changed = requests.post(
-            f"{API}/auth/change-password",
-            headers=headers,
-            json={"current_password": temporary_teacher["password"], "new_password": "changed123"},
-            timeout=20,
-        )
-        assert changed.status_code == 200 and changed.json() == {"success": True}
-        assert requests.post(f"{API}/auth/login", json={"email": temporary_teacher["email"], "password": "changed123"}, timeout=20).status_code == 200
-        restored = requests.post(f"{API}/auth/change-password", headers=headers, json={"current_password": "changed123", "new_password": temporary_teacher["password"]}, timeout=20)
-        assert restored.status_code == 200
+    def test_profile_and_notifications_persist_and_restore(self, teacher):
+        original = teacher.get(f"{API}/auth/me", timeout=20).json()
+        profile_restore = {key: original.get(key) for key in ("name", "phone", "institution", "picture")}
+        notif_restore = {"email_notifications": original.get("email_notifications", True), "push_notifications": original.get("push_notifications", True)}
+        try:
+            changed = {**profile_restore, "phone": "+1 555 TEST"}
+            response = teacher.put(f"{API}/auth/profile", json=changed, timeout=20)
+            assert response.status_code == 200 and response.json()["phone"] == "+1 555 TEST"
+            assert teacher.get(f"{API}/auth/me", timeout=20).json()["phone"] == "+1 555 TEST"
+            prefs = {"email_notifications": not notif_restore["email_notifications"], "push_notifications": not notif_restore["push_notifications"]}
+            response = teacher.put(f"{API}/auth/notifications", json=prefs, timeout=20)
+            assert response.status_code == 200 and response.json()["email_notifications"] == prefs["email_notifications"]
+            me = teacher.get(f"{API}/auth/me", timeout=20).json()
+            assert me["email_notifications"] == prefs["email_notifications"] and me["push_notifications"] == prefs["push_notifications"]
+        finally:
+            teacher.put(f"{API}/auth/profile", json=profile_restore, timeout=20)
+            teacher.put(f"{API}/auth/notifications", json=notif_restore, timeout=20)

@@ -33,16 +33,16 @@ export default function Register() {
   };
 
   const Tab = ({ value, icon: Icon, label }) => (
-    <button type="button" data-testid={`role-tab-${value}`} onClick={() => setRole(value)} className={`flex flex-1 items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm transition-colors ${role === value ? "border-[#0066FF] bg-[#0066FF]/10 text-white" : "border-white/10 text-zinc-500 hover:text-white"}`}>
+    <button type="button" data-testid={`role-tab-${value}`} onClick={() => setRole(value)} className={`cr-roletab ${role === value ? "is-active" : ""}`}>
       <Icon className="h-4 w-4" /> {label}
     </button>
   );
 
   return (
     <AuthShell>
-      <p className="mb-3 text-xs uppercase tracking-[0.3em] text-zinc-500">Get started</p>
-      <h1 className="mb-2 font-display text-3xl font-light tracking-tighter">Create account</h1>
-      <p className="mb-6 text-sm text-zinc-500">Choose your role to continue.</p>
+      <p className="cr-auth-overline">Get started</p>
+      <h1 className="cr-auth-h1">Create account</h1>
+      <p className="cr-auth-sub-6">Choose your role to continue.</p>
 
       <div className="mb-6 flex gap-3">
         <Tab value="student" icon={GraduationCap} label="Student" />
@@ -72,21 +72,21 @@ export default function Register() {
           </div>
         )}
 
-        <label className="flex items-start gap-2 text-xs text-zinc-500">
+        <label className="cr-terms">
           <input data-testid="register-terms-checkbox" type="checkbox" checked={f.accept_terms} onChange={(e) => set("accept_terms", e.target.checked)} className="mt-0.5 accent-[#0066FF]" />
           I agree to the Terms of Service and Privacy Policy.
         </label>
 
-        {err && <p data-testid="register-error" className="text-xs text-[#FF3366]">{err}</p>}
-        <button data-testid="register-submit-button" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-md bg-[#0066FF] py-3 font-medium text-white transition-transform active:scale-[0.98] hover:bg-[#0066FF]/90 disabled:opacity-60">
+        {err && <p data-testid="register-error" className="cr-error">{err}</p>}
+        <button data-testid="register-submit-button" disabled={busy} className="cr-btn-block">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Create ${role} account`}
         </button>
       </form>
 
-      <div className="my-6 flex items-center gap-4"><div className="h-px flex-1 bg-white/10" /><span className="text-[10px] uppercase tracking-[0.3em] text-zinc-600">or</span><div className="h-px flex-1 bg-white/10" /></div>
+      <div className="cr-or"><div className="cr-or-line" /><span className="cr-or-text">or</span><div className="cr-or-line" /></div>
       <GoogleButton label="Sign up with Google (Teacher)" />
 
-      <p className="mt-8 text-center text-sm text-zinc-500">Already have an account? <Link data-testid="go-login-link" to="/login" className="text-[#0066FF] hover:underline">Sign in</Link></p>
+      <p className="cr-muted-center">Already have an account? <Link data-testid="go-login-link" to="/login" className="cr-link-accent">Sign in</Link></p>
     </AuthShell>
   );
 }

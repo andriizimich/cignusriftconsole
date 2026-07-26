@@ -1,0 +1,57 @@
+{
+  "summary": "Tested Cygnus Rift backend and frontend via the public URL. Backend pytest: 8/16 passed; failures identify authorization, validation, and auth-security defects. Frontend core flows passed after data-load waits: teacher Summary with no Recent Bookings, dark/light persistence, Sessions filters/sort/views, section quizzes, both library modals, 40-minute cap, Groups tabs/form controls, teacher booking sorting/action states, profile/notification persistence, student role nav and Join/Leave, bad-login feedback, register tabs, and forgot-password 3-step rendering.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PUT/DELETE /api/lessons/{id}, /api/groups/{id}, /api/bookings/{id}", "issue": "Mutation endpoints lack require_teacher; authenticated students can update/delete teacher-owned lessons, groups, and bookings.", "priority": "CRITICAL"},
+      {"endpoint": "OPTIONS /api/auth/login", "issue": "CORS responds Access-Control-Allow-Origin: * for an untrusted origin while credentialed auth is enabled; backend CORS_ORIGINS is wildcard instead of explicit frontend origins.", "priority": "HIGH"},
+      {"endpoint": "POST /api/auth/login", "issue": "No brute-force protection: six consecutive bad passwords all return 401; expected lockout after five failures.", "priority": "HIGH"},
+      {"endpoint": "POST /api/bookings", "issue": "Unknown group IDs are accepted, creating bookings with group=null and zero participants instead of 404.", "priority": "HIGH"},
+      {"endpoint": "POST /api/groups", "issue": "The required minimum group size is not enforced; a one-student group is accepted.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/bookings/{id}/join", "issue": "Archived bookings can be joined through the API even though the UI disables the action."},
+      {"endpoint": "POST /api/auth/login", "issue": "Requested student credential student_1@test.io/password123 returns 401. The credentials file and seeded account instead use student@cygnusrift.io."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Lesson/group/booking authorization", "issue": "Frontend hides teacher routes from students, but the corresponding backend mutation APIs do not enforce teacher authorization, so route hiding is bypassable.", "affected_selectors": ["[data-testid=nav-sessions-link]", "[data-testid=nav-groups-link]", "[data-testid=new-booking-btn]"]}
+    ],
+    "design_issues": [
+      {"screen": "Summary chart", "issues": ["Recharts repeatedly logs width(-1)/height(-1) during initial render; the chart subsequently renders."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration_3_results.xml"
+  ],
+  "action_items": [
+    "Add require_teacher to every teacher mutation endpoint, especially lesson/group/booking PUT and DELETE.",
+    "Use explicit CORS frontend origins with allow_credentials=True; do not return wildcard origin.",
+    "Implement Mongo-backed five-failure login lockout and clear attempts after successful login.",
+    "Validate group existence on booking create/update and reject missing linked resources.",
+    "Enforce at least eight students when creating/updating a group.",
+    "Reject joining archived bookings and validate booking existence before join/leave.",
+    "Reconcile the requested student_1@test.io credential with the seeded/documented student@cygnusrift.io account.",
+    "Add API error handling/loading states to list pages and library modal to prevent silent empty states during delayed or failed requests."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 758 lines and should be split into auth, lessons, groups, bookings, dashboard, models, and seed modules.",
+    "Read/list endpoints for lessons, groups, bookings, students, content blocks, and dashboard are public; confirm whether authenticated access was intended.",
+    "DELETE endpoints always return success for missing IDs, reducing API correctness and observability.",
+    "LibraryPickerModal and list pages use promise chains without catch/loading states; a slow request temporarily displays zero results or an empty page.",
+    "JWT access tokens live for seven days and are duplicated into localStorage, increasing XSS exposure relative to cookie-only short-lived access plus refresh tokens.",
+    "Most table-view action buttons, modal close/cancel controls, form back/cancel controls, and generated quiz option inputs still lack data-testid attributes."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/iteration_3.json"
+  ],
+  "success_rate": {"backend": "50% (8/16)", "frontend": "92% of executed flows; core requested UI paths passed, with backend security/validation defects exposed"},
+  "seed_data_creation": "Created temporary TEST auth/resource data during API tests and cleaned it. Profile phone/notification and student Join/Leave state were restored. Removed the teacher password-reset record generated during the non-destructive 3-step UI check.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run pytest /app/backend/tests/backend_test.py with the public URL. Existing failures are expected until server authorization, CORS, lockout, group-size, booking-link, and archived-join fixes land. For UI async lists/modals, wait for the first data-testid row/block instead of asserting immediately. Theme preference was restored to dark.",
+  "rca_of_the_issue": "server.py applies require_teacher only to lesson/group/booking creation and add-student, not update/delete operations. GroupIn has no minimum-size validator. create_booking checks lesson but not group. join_booking blindly adds an email without checking booking status/existence. Login has no attempt store/lockout. CORS reads CORS_ORIGINS='*' while credentials are enabled. The requested student_1@test.io account is not seeded; the actual seed and credentials file use student@cygnusrift.io."
+}

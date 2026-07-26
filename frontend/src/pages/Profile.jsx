@@ -6,8 +6,6 @@ import { api } from "@/lib/api";
 import { PageHeader, Widget } from "@/components/Widget";
 import { useAuth, formatApiError } from "@/context/AuthContext";
 
-const inp = "w-full rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#0066FF]/50";
-const lbl = "mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-zinc-500";
 const TABS = ["personal", "security", "notifications"];
 
 export default function Profile() {
@@ -60,8 +58,8 @@ export default function Profile() {
   };
 
   const Toggle = ({ on, onClick, testid }) => (
-    <button data-testid={testid} onClick={onClick} role="switch" aria-checked={on} className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${on ? "bg-[#0066FF]" : "bg-white/15"}`}>
-      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+    <button data-testid={testid} onClick={onClick} role="switch" aria-checked={on} className={`cr-toggle ${on ? "is-on" : ""}`}>
+      <span className={`cr-toggle-knob ${on ? "translate-x-[22px]" : "translate-x-0.5"}`} />
     </button>
   );
 
@@ -69,11 +67,11 @@ export default function Profile() {
     <div>
       <PageHeader overline="Account" title="Profile" subtitle="Manage your identity, security and notification preferences." />
 
-      <div className="mb-6 flex gap-2 border-b border-white/[0.07]">
+      <div className="cr-tabs">
         {TABS.map((t) => (
-          <button key={t} data-testid={`profile-tab-${t}`} onClick={() => navigate(`/dashboard/profile/${t}`)} className={`relative px-4 py-3 text-sm capitalize transition-colors ${active === t ? "text-white" : "text-zinc-500 hover:text-zinc-300"}`}>
+          <button key={t} data-testid={`profile-tab-${t}`} onClick={() => navigate(`/dashboard/profile/${t}`)} className={`cr-tab ${active === t ? "is-active" : ""}`}>
             {t === "personal" ? "Personal Data" : t}
-            {active === t && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#0066FF]" />}
+            {active === t && <span className="cr-tab-bar" />}
           </button>
         ))}
       </div>
@@ -82,19 +80,19 @@ export default function Profile() {
         <Widget testid="profile-personal-widget" className="max-w-2xl">
           <div className="space-y-5 p-6">
             <div className="flex items-center gap-5">
-              {p.picture ? <img src={p.picture} alt="avatar" className="h-20 w-20 rounded-lg object-cover ring-2 ring-[#0066FF]/40" /> : <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-[#0066FF]/15 font-display text-2xl text-[#0066FF] ring-2 ring-[#0066FF]/30">{p.name?.[0] || "U"}</div>}
+              {p.picture ? <img src={p.picture} alt="avatar" className="cr-avatar-lg-img" /> : <div className="cr-avatar-lg">{p.name?.[0] || "U"}</div>}
               <div className="flex gap-2">
-                <label data-testid="avatar-upload" className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-white/15 px-3 py-2 text-xs text-zinc-300 hover:text-white"><Camera className="h-3.5 w-3.5" /> Upload<input type="file" accept="image/*" className="hidden" onChange={onAvatar} /></label>
-                {p.picture && <button data-testid="avatar-remove" onClick={() => setP({ ...p, picture: null })} className="inline-flex items-center gap-1.5 rounded-md border border-white/15 px-3 py-2 text-xs text-zinc-400 hover:text-[#FF3366]"><Trash2 className="h-3.5 w-3.5" /> Remove</button>}
+                <label data-testid="avatar-upload" className="cr-btn-sm cursor-pointer"><Camera className="h-3.5 w-3.5" /> Upload<input type="file" accept="image/*" className="hidden" onChange={onAvatar} /></label>
+                {p.picture && <button data-testid="avatar-remove" onClick={() => setP({ ...p, picture: null })} className="cr-btn-sm cr-btn-sm-danger"><Trash2 className="h-3.5 w-3.5" /> Remove</button>}
               </div>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
-              <div><label className={lbl}>Full Name</label><input data-testid="profile-name-input" className={inp} value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} /></div>
-              <div><label className={lbl}>Email</label><input className={`${inp} opacity-60`} value={user?.email || ""} disabled /></div>
-              <div><label className={lbl}>Contact Phone</label><input data-testid="profile-phone-input" className={inp} value={p.phone} onChange={(e) => setP({ ...p, phone: e.target.value })} /></div>
-              <div><label className={lbl}>Institution / Company</label><input data-testid="profile-institution-input" className={inp} value={p.institution} onChange={(e) => setP({ ...p, institution: e.target.value })} /></div>
+              <div><label className="cr-label">Full Name</label><input data-testid="profile-name-input" className="cr-input" value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} /></div>
+              <div><label className="cr-label">Email</label><input className="cr-input opacity-60" value={user?.email || ""} disabled /></div>
+              <div><label className="cr-label">Contact Phone</label><input data-testid="profile-phone-input" className="cr-input" value={p.phone} onChange={(e) => setP({ ...p, phone: e.target.value })} /></div>
+              <div><label className="cr-label">Institution / Company</label><input data-testid="profile-institution-input" className="cr-input" value={p.institution} onChange={(e) => setP({ ...p, institution: e.target.value })} /></div>
             </div>
-            <button data-testid="profile-save-btn" onClick={saveProfile} disabled={busy} className="inline-flex items-center gap-2 rounded-md bg-[#0066FF] px-5 py-2.5 text-sm font-medium text-white active:scale-95 disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Save changes</button>
+            <button data-testid="profile-save-btn" onClick={saveProfile} disabled={busy} className="cr-btn-primary disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Save changes</button>
           </div>
         </Widget>
       )}
@@ -102,25 +100,25 @@ export default function Profile() {
       {active === "security" && (
         <Widget testid="profile-security-widget" className="max-w-lg">
           <div className="space-y-5 p-6">
-            <div><label className={lbl}>Current Password</label><input data-testid="current-password-input" type="password" className={inp} value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></div>
-            <div><label className={lbl}>New Password</label><input data-testid="new-password-input" type="password" className={inp} value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></div>
-            <div><label className={lbl}>Confirm New Password</label><input data-testid="confirm-password-input" type="password" className={inp} value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} /></div>
-            <button data-testid="change-password-btn" onClick={changePw} disabled={busy} className="inline-flex items-center gap-2 rounded-md bg-[#0066FF] px-5 py-2.5 text-sm font-medium text-white active:scale-95 disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Update password</button>
+            <div><label className="cr-label">Current Password</label><input data-testid="current-password-input" type="password" className="cr-input" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></div>
+            <div><label className="cr-label">New Password</label><input data-testid="new-password-input" type="password" className="cr-input" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></div>
+            <div><label className="cr-label">Confirm New Password</label><input data-testid="confirm-password-input" type="password" className="cr-input" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} /></div>
+            <button data-testid="change-password-btn" onClick={changePw} disabled={busy} className="cr-btn-primary disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Update password</button>
           </div>
         </Widget>
       )}
 
       {active === "notifications" && (
         <Widget testid="profile-notifications-widget" className="max-w-lg">
-          <div className="divide-y divide-white/[0.05]">
-            <div className="flex items-center gap-4 px-6 py-5">
-              <div className="rounded-md border border-white/10 bg-black/40 p-2.5"><Mail className="h-4 w-4 text-[#0066FF]" /></div>
-              <div className="flex-1"><p className="text-sm text-white">Email Notifications</p><p className="text-xs text-zinc-500">Session reminders and booking updates via email.</p></div>
+          <div className="cr-divide">
+            <div className="cr-list-row py-5">
+              <div className="cr-notif-icon"><Mail className="h-4 w-4 text-[#0066FF]" /></div>
+              <div className="flex-1"><p className="cr-td-strong text-sm">Email Notifications</p><p className="cr-tm text-xs">Session reminders and booking updates via email.</p></div>
               <Toggle testid="toggle-email" on={notif.email_notifications} onClick={() => saveNotif({ ...notif, email_notifications: !notif.email_notifications })} />
             </div>
-            <div className="flex items-center gap-4 px-6 py-5">
-              <div className="rounded-md border border-white/10 bg-black/40 p-2.5"><Bell className="h-4 w-4 text-[#B800FF]" /></div>
-              <div className="flex-1"><p className="text-sm text-white">Push Notifications</p><p className="text-xs text-zinc-500">Real-time alerts in the Cygnus Rift app.</p></div>
+            <div className="cr-list-row py-5">
+              <div className="cr-notif-icon"><Bell className="h-4 w-4 text-[#B800FF]" /></div>
+              <div className="flex-1"><p className="cr-td-strong text-sm">Push Notifications</p><p className="cr-tm text-xs">Real-time alerts in the Cygnus Rift app.</p></div>
               <Toggle testid="toggle-push" on={notif.push_notifications} onClick={() => saveNotif({ ...notif, push_notifications: !notif.push_notifications })} />
             </div>
           </div>

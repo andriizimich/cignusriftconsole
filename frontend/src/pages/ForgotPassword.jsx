@@ -32,8 +32,8 @@ export default function ForgotPassword() {
     <div className="mb-8 flex items-center gap-2" data-testid="reset-steps">
       {[1, 2, 3].map((n) => (
         <div key={n} className="flex flex-1 items-center gap-2">
-          <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${step > n ? "bg-[#00FF66] text-black" : step === n ? "bg-[#0066FF] text-white" : "bg-white/5 text-zinc-600"}`}>{step > n ? <Check className="h-3.5 w-3.5" /> : n}</span>
-          {n < 3 && <span className={`h-px flex-1 ${step > n ? "bg-[#00FF66]/40" : "bg-white/10"}`} />}
+          <span className={`cr-step-num ${step > n ? "is-done" : step === n ? "is-current" : ""}`}>{step > n ? <Check className="h-3.5 w-3.5" /> : n}</span>
+          {n < 3 && <span className={`cr-step-line ${step > n ? "is-done" : ""}`} />}
         </div>
       ))}
     </div>
@@ -41,34 +41,34 @@ export default function ForgotPassword() {
 
   return (
     <AuthShell>
-      <Link to="/login" className="mb-6 inline-flex items-center gap-2 text-xs text-zinc-500 hover:text-white"><ArrowLeft className="h-4 w-4" /> Back to sign in</Link>
-      <h1 className="mb-2 font-display text-3xl font-light tracking-tighter">Reset password</h1>
-      <p className="mb-8 text-sm text-zinc-500">{step === 1 ? "Enter your email to receive a code." : step === 2 ? "Enter the 6-digit code we sent." : "Choose a new password."}</p>
+      <Link to="/login" className="cr-backlink"><ArrowLeft className="h-4 w-4" /> Back to sign in</Link>
+      <h1 className="cr-auth-h1">Reset password</h1>
+      <p className="cr-auth-sub">{step === 1 ? "Enter your email to receive a code." : step === 2 ? "Enter the 6-digit code we sent." : "Choose a new password."}</p>
       <Steps />
 
       {step === 1 && (
         <form onSubmit={sendCode} className="space-y-4">
-          <div><label className={labelCls}>Email</label><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" /><input data-testid="reset-email-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={`${inputCls} pl-9`} placeholder="you@company.com" /></div></div>
-          {err && <p data-testid="reset-error" className="text-xs text-[#FF3366]">{err}</p>}
-          <button data-testid="send-code-button" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-md bg-[#0066FF] py-3 font-medium text-white active:scale-[0.98] disabled:opacity-60">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send code"}</button>
+          <div><label className={labelCls}>Email</label><div className="relative"><Mail className="cr-field-icon" /><input data-testid="reset-email-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={`${inputCls} pl-9`} placeholder="you@company.com" /></div></div>
+          {err && <p data-testid="reset-error" className="cr-error">{err}</p>}
+          <button data-testid="send-code-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send code"}</button>
         </form>
       )}
 
       {step === 2 && (
         <form onSubmit={checkCode} className="space-y-4">
-          <div><label className={labelCls}>Verification Code</label><div className="relative"><KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" /><input data-testid="reset-code-input" required value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} className={`${inputCls} pl-9 font-mono-plex tracking-[0.3em]`} placeholder="000000" /></div></div>
-          {err && <p data-testid="reset-error" className="text-xs text-[#FF3366]">{err}</p>}
-          <button data-testid="verify-code-button" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-md bg-[#0066FF] py-3 font-medium text-white active:scale-[0.98] disabled:opacity-60">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}</button>
-          <button type="button" onClick={() => setStep(1)} className="w-full text-center text-xs text-zinc-600 hover:text-zinc-300">Change email</button>
+          <div><label className={labelCls}>Verification Code</label><div className="relative"><KeyRound className="cr-field-icon" /><input data-testid="reset-code-input" required value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} className={`${inputCls} pl-9 font-mono-plex tracking-[0.3em]`} placeholder="000000" /></div></div>
+          {err && <p data-testid="reset-error" className="cr-error">{err}</p>}
+          <button data-testid="verify-code-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}</button>
+          <button type="button" onClick={() => setStep(1)} className="cr-guest-link">Change email</button>
         </form>
       )}
 
       {step === 3 && (
         <form onSubmit={doReset} className="space-y-4">
-          <div><label className={labelCls}>New Password</label><div className="relative"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" /><input data-testid="reset-new-password-input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={`${inputCls} pl-9`} placeholder="••••••••" /></div></div>
-          <div><label className={labelCls}>Confirm Password</label><div className="relative"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" /><input data-testid="reset-confirm-password-input" type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className={`${inputCls} pl-9`} placeholder="••••••••" /></div></div>
-          {err && <p data-testid="reset-error" className="text-xs text-[#FF3366]">{err}</p>}
-          <button data-testid="reset-submit-button" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-md bg-[#0066FF] py-3 font-medium text-white active:scale-[0.98] disabled:opacity-60">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}</button>
+          <div><label className={labelCls}>New Password</label><div className="relative"><Lock className="cr-field-icon" /><input data-testid="reset-new-password-input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={`${inputCls} pl-9`} placeholder="••••••••" /></div></div>
+          <div><label className={labelCls}>Confirm Password</label><div className="relative"><Lock className="cr-field-icon" /><input data-testid="reset-confirm-password-input" type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className={`${inputCls} pl-9`} placeholder="••••••••" /></div></div>
+          {err && <p data-testid="reset-error" className="cr-error">{err}</p>}
+          <button data-testid="reset-submit-button" disabled={busy} className="cr-btn-block">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}</button>
         </form>
       )}
     </AuthShell>

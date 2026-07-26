@@ -22,7 +22,7 @@ import BookingForm from "@/pages/BookingForm";
 import Profile from "@/pages/Profile";
 
 const Loader = () => (
-  <div className="flex min-h-screen items-center justify-center bg-[#050505]"><div className="h-10 w-10 rounded-full border-2 border-[#0066FF] border-t-transparent animate-spin" /></div>
+  <div className="cr-loader-screen"><div className="cr-spinner" /></div>
 );
 
 function Protected({ children, teacherOnly }) {
