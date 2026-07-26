@@ -1,0 +1,14 @@
+.badge {
+  @apply inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest;
+  --fg: var(--cr-text-3);
+  color: var(--fg);
+  background-color: color-mix(in srgb, var(--fg) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 25%, transparent);
+}
+.dot { @apply h-1.5 w-1.5 rounded-full; animation: pulse-glow 2.4s ease-in-out infinite; background-color: var(--fg); }
+.paid, .completed, .active { --fg: var(--cr-green); }
+.pending { --fg: var(--cr-amber); }
+.failed { --fg: var(--cr-danger); }
+.scheduled { --fg: var(--cr-accent); }
+.in_progress { --fg: var(--cr-purple); }
+.created, .archived { --fg: var(--cr-text-3); }

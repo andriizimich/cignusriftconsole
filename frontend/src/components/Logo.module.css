@@ -1,0 +1,8 @@
+.logo { @apply flex items-center gap-3; }
+.mark { @apply relative h-9 w-9 shrink-0; }
+.glow { @apply absolute inset-0 rounded-md blur-md opacity-30; animation: pulse-glow 2.4s ease-in-out infinite; background-color: var(--cr-accent); }
+.box { @apply relative flex h-9 w-9 items-center justify-center rounded-md border; border-color: var(--cr-border-strong-2); background-color: #0A0A0B; }
+.img { @apply h-6 w-6 object-contain; }
+.text { @apply leading-none; }
+.name { @apply text-base font-medium tracking-tight; font-family: "Unbounded", sans-serif; color: var(--cr-text); }
+.sub { @apply mt-1 text-[10px] uppercase tracking-[0.28em]; color: var(--cr-text-muted); }

@@ -1,3 +1,5 @@
+import PropTypes from "prop-types";
+
 export const PageHeader = ({ overline, title, subtitle, action }) => (
   <div className="cr-pagehead">
     <div>
@@ -20,3 +22,18 @@ export const Widget = ({ title, action, children, className = "", testid }) => (
     {children}
   </section>
 );
+
+PageHeader.propTypes = {
+  overline: PropTypes.string,
+  title: PropTypes.node.isRequired,
+  subtitle: PropTypes.node,
+  action: PropTypes.node,
+};
+
+Widget.propTypes = {
+  title: PropTypes.node,
+  action: PropTypes.node,
+  children: PropTypes.node,
+  className: PropTypes.string,
+  testid: PropTypes.string,
+};

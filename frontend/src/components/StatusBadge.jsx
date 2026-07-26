@@ -1,3 +1,7 @@
+import PropTypes from "prop-types";
+import clsx from "clsx";
+import styles from "./StatusBadge.module.css";
+
 const LABELS = {
   paid: "Paid",
   pending: "Pending",
@@ -11,8 +15,12 @@ const LABELS = {
 };
 
 export const StatusBadge = ({ status }) => (
-  <span data-testid={`status-badge-${status}`} className={`cr-badge cr-badge--${status}`}>
-    <span className="cr-badge-dot" />
+  <span data-testid={`status-badge-${status}`} className={clsx(styles.badge, styles[status])}>
+    <span className={styles.dot} />
     {LABELS[status] || "Pending"}
   </span>
 );
+
+StatusBadge.propTypes = {
+  status: PropTypes.string.isRequired,
+};
