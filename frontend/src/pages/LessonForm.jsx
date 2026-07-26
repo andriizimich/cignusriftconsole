@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { blockDuration } from "@/components/ContentBlockCard";
 import { LibraryPickerModal } from "@/components/LibraryPickerModal";
 import { formatApiError } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 
 const inp = "w-full rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#0066FF]/50";
 const lbl = "mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-zinc-500";
@@ -15,6 +16,7 @@ export default function LessonForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const editing = Boolean(id);
+  const { theme } = useTheme();
   const [cats, setCats] = useState({});
   const [f, setF] = useState({ title: "", description: "", category: "", duration: 40 });
   const [selected, setSelected] = useState({ theory: [], practice: [] });
@@ -63,10 +65,11 @@ export default function LessonForm() {
 
   const QuizEditor = ({ type, accent }) => {
     const qz = sectionQuiz[type];
+    const a = theme === "light" && accent === "#00FF66" ? "#0a8f4f" : accent;
     if (!qz) return <button type="button" data-testid={`add-quiz-${type}`} onClick={() => addQuiz(type)} className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"><Plus className="h-3.5 w-3.5" /> Attach {type} quiz</button>;
     return (
-      <div className="mt-4 rounded-md border p-3" style={{ borderColor: `${accent}40`, background: `${accent}0D` }}>
-        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4" style={{ color: accent }} /><input data-testid={`quiz-question-${type}`} className={inp} value={qz.question} onChange={(e) => updateQuiz(type, { question: e.target.value })} placeholder={`${type === "theory" ? "Theory" : "Practice"} quiz question`} /><button data-testid={`quiz-remove-${type}`} onClick={() => removeQuiz(type)} className="rounded-md p-2 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
+      <div className="mt-4 rounded-md border p-3" style={{ borderColor: `${a}40`, background: `${a}0D` }}>
+        <div className="mb-2 flex items-center gap-2"><HelpCircle className="h-4 w-4" style={{ color: a }} /><input data-testid={`quiz-question-${type}`} className={inp} value={qz.question} onChange={(e) => updateQuiz(type, { question: e.target.value })} placeholder={`${type === "theory" ? "Theory" : "Practice"} quiz question`} /><button data-testid={`quiz-remove-${type}`} onClick={() => removeQuiz(type)} className="rounded-md p-2 text-zinc-500 hover:text-[#FF3366]"><X className="h-4 w-4" /></button></div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {qz.options.map((o, oi) => (
             <div key={oi} className="flex items-center gap-2">
